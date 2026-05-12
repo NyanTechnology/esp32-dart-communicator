@@ -1,5 +1,7 @@
 # esp32_comm
 
+[中文版](./README_ZH.md)
+
 A Flutter package for communicating with ESP32-based NyanEye devices via BLE, LAN (mDNS/UDP), and HTTP.
 
 ## Features
@@ -56,6 +58,46 @@ final response = await bleClient.sendCommand({
   "pwd": "password"
 });
 ```
+
+## Integration & Debugging
+
+For a complete example of how to combine HTTP and BLE services for device integration, see [example/main.dart](example/main.dart).
+
+```dart
+// Run the example
+flutter run example/main.dart
+```
+
+## Testing
+
+The project includes unit tests for core models and logic.
+
+```bash
+# Run all tests
+flutter test
+```
+
+Currently covered:
+- `DeviceInfo` JSON parsing (camelCase and snake_case support).
+- `WifiCredentials` serialization and QR-code string parsing.
+
+## For Firmware Developers (Standalone Debugging)
+
+If you are developing the ESP32 firmware and want to test your API compatibility without running the full Flutter app, you can use our standalone CLI tool.
+
+**Prerequisites:** [Dart SDK](https://dart.dev/get-dart) installed.
+
+```bash
+# Show help and available test options
+dart tools/debug_device.dart --help
+
+# Test specific features (e.g., only Info and Upload)
+dart tools/debug_device.dart <your_device_ip> --info --upload
+```
+
+Available flags: `--info`, `--upload`, `--apply`, `--negative`, `--all`.
+
+This tool will verify if your implementation of `/api/device_info`, `/api/upload`, and `/api/eyes/apply` correctly matches the requirements of this package.
 
 ## License
 

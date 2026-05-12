@@ -6,6 +6,10 @@ import '../models/device_info.dart';
 
 /// Client for communicating with ESP32 devices via HTTP REST API.
 class DeviceHttpClient {
+  final http.Client _client;
+
+  DeviceHttpClient({http.Client? client}) : _client = client ?? http.Client();
+
   /// Fetches device information from a specific [baseUrl].
   /// 
   /// Returns [DeviceInfo] if successful, otherwise null.
@@ -14,7 +18,7 @@ class DeviceHttpClient {
     Duration timeout = const Duration(seconds: 4),
   }) async {
     try {
-      final resp = await http.get(
+      final resp = await _client.get(
         Uri.parse('$baseUrl/api/device_info'),
         headers: {'Connection': 'close'},
       ).timeout(
@@ -44,7 +48,7 @@ class DeviceHttpClient {
       final uploadUri = Uri.parse('$baseUrl/api/upload');
       final req = http.MultipartRequest('POST', uploadUri);
       req.files.add(http.MultipartFile.fromBytes('file', data, filename: filename));
-      final response = await req.send().timeout(const Duration(seconds: 60));
+      final response = await _client.send(req).timeout(const Duration(seconds: 60));
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -65,7 +69,7 @@ class DeviceHttpClient {
       final applyUri = Uri.parse(
         '$baseUrl/api/eyes/apply?left=/images/$leftFilename&right=/images/$rightFilename&leftMirror=$leftMirror&rightMirror=$rightMirror',
       );
-      final resp = await http.get(applyUri).timeout(const Duration(seconds: 30));
+      final resp = await _client.get(applyUri).timeout(const Duration(seconds: 30));
       return resp.statusCode == 200;
     } catch (_) {
       return false;

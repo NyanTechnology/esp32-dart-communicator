@@ -1,0 +1,4 @@
+enum ConnectMode {
+  home,
+  away,
+}

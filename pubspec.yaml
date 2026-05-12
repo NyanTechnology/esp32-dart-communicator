@@ -1,0 +1,21 @@
+name: esp32_comm
+description: A Dart package for communicating with ESP32 based NyanEye devices.
+version: 0.1.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.1
+  nsd: ^5.0.1
+  flutter_blue_plus: ^2.3.2
+  wifi_iot: ^0.3.19+2
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0

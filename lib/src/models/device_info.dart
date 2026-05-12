@@ -1,0 +1,55 @@
+class DeviceInfo {
+  DeviceInfo({
+    required this.firmware,
+    required this.mode,
+    required this.apSsid,
+    required this.apIp,
+    required this.apClients,
+    required this.staConnected,
+    required this.isManager,
+    this.staSsid,
+    this.staIp,
+    this.mdnsHost,
+    this.mdnsUrl,
+    this.managerHost,
+    this.managerUrl,
+  });
+
+  final String firmware;
+  final String mode;
+  final String apSsid;
+  final String apIp;
+  final int apClients;
+  final String? staSsid;
+  final bool staConnected;
+  final String? staIp;
+  final String? mdnsHost;
+  final String? mdnsUrl;
+  final String? managerHost;
+  final String? managerUrl;
+  final bool isManager;
+
+  factory DeviceInfo.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    return DeviceInfo(
+      firmware: (json['firmware'] ?? json['fw_version']) as String? ?? '',
+      mode: json['mode'] as String? ?? '',
+      apSsid: (json['apSsid'] ?? json['ap_ssid']) as String? ?? '',
+      apIp: (json['apIp'] ?? json['ap_ip']) as String? ?? '',
+      apClients: parseInt(json['apClients'] ?? json['ap_clients']),
+      staSsid: (json['staSsid'] ?? json['sta_ssid']) as String?,
+      staConnected: (json['staConnected'] ?? json['sta_connected']) == true,
+      staIp: (json['staIp'] ?? json['sta_ip']) as String?,
+      mdnsHost: (json['mdnsHost'] ?? json['mdns_host']) as String?,
+      mdnsUrl: (json['mdnsUrl'] ?? json['mdns_url']) as String?,
+      managerHost: (json['managerHost'] ?? json['manager_host']) as String?,
+      managerUrl: (json['managerUrl'] ?? json['manager_url']) as String?,
+      isManager: (json['isManager'] ?? json['is_manager']) == true,
+    );
+  }
+}

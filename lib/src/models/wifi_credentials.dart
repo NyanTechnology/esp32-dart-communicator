@@ -7,45 +7,27 @@ class WifiCredentials {
     required this.password,
     required this.type,
     required this.hidden,
-    this.nickname,
-    this.managerUrl,
-    this.mdnsUrl,
     this.lanReachable = false,
     this.lanIp,
     this.connectMode = ConnectMode.home,
-    this.imagePath,
-    this.makeupImagePath,
-    this.isBound = true,
   });
 
   final String ssid;
   final String password;
   final String? type;
   final bool hidden;
-  final String? nickname;
-  final String? managerUrl;
-  final String? mdnsUrl;
   final bool lanReachable;
   final String? lanIp;
   final ConnectMode connectMode;
-  final String? imagePath;
-  final String? makeupImagePath;
-  final bool isBound;
 
   Map<String, dynamic> toJson() => {
         'ssid': ssid,
         'password': password,
         'type': type,
         'hidden': hidden,
-        'nickname': nickname,
-        'managerUrl': managerUrl,
-        'mdnsUrl': mdnsUrl,
         'lanReachable': lanReachable,
         'lanIp': lanIp,
         'connectMode': connectMode.name,
-        'imagePath': imagePath,
-        'makeupImagePath': makeupImagePath,
-        'isBound': isBound,
       };
 
   factory WifiCredentials.fromJson(Map<String, dynamic> json) {
@@ -61,15 +43,9 @@ class WifiCredentials {
       password: json['password'] as String? ?? '',
       type: json['type'] as String?,
       hidden: json['hidden'] == true,
-      nickname: json['nickname'] as String?,
-      managerUrl: json['managerUrl'] as String?,
-      mdnsUrl: json['mdnsUrl'] as String?,
       lanReachable: json['lanReachable'] as bool? ?? false,
       lanIp: json['lanIp'] as String?,
       connectMode: parseMode(json['connectMode'] as String?),
-      imagePath: json['imagePath'] as String?,
-      makeupImagePath: json['makeupImagePath'] as String?,
-      isBound: json['isBound'] as bool? ?? true,
     );
   }
 

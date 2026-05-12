@@ -8,24 +8,27 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 /// Primarily used for initial provisioning and out-of-band control.
 class DeviceBleClient {
   /// The default service UUID for NyanEye control.
-  static const String serviceUuid = '4fafc201-1fb5-459e-8bcc-c5c9c331914b';
+  static const String defaultServiceUuid = '4fafc201-1fb5-459e-8bcc-c5c9c331914b';
   
   /// The default characteristic UUID for control commands and notifications.
-  static const String charUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+  static const String defaultCharUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
-  /// The underlying [BluetoothDevice] from `flutter_blue_plus`.
   final BluetoothDevice device;
+  final String serviceUuid;
+  final String charUuid;
   
   BluetoothCharacteristic? _controlChar;
   StreamSubscription? _notifySub;
   Completer<Map<String, dynamic>>? _responseCompleter;
 
   /// Creates a new [DeviceBleClient] for the given [device].
-  DeviceBleClient(this.device);
+  DeviceBleClient(
+    this.device, {
+    this.serviceUuid = defaultServiceUuid,
+    this.charUuid = defaultCharUuid,
+  });
 
   /// Initializes the client by discovering services and enabling notifications.
-  /// 
-  /// Throws an [Exception] if the required service or characteristic is not found.
   Future<void> init() async {
     await _notifySub?.cancel();
     final services = await device.discoverServices().timeout(const Duration(seconds: 10));

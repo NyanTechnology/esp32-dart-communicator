@@ -11,17 +11,23 @@ import 'device_http_client.dart';
 /// Utilizes both mDNS and UDP broadcast for robust discovery.
 class DeviceDiscoveryService {
   final DeviceHttpClient _httpClient;
+  final String mDnsServiceName;
+  final String mDnsSearchString;
+  final String udpRequestString;
 
   /// Creates a new [DeviceDiscoveryService].
   /// 
-  /// An optional [httpClient] can be provided for fetching device info after discovery.
-  DeviceDiscoveryService({DeviceHttpClient? httpClient})
-      : _httpClient = httpClient ?? DeviceHttpClient();
+  /// [mDnsServiceName] is the service type to search for (default: _http._tcp).
+  /// [mDnsSearchString] is a substring to match in the discovered service name.
+  /// [udpRequestString] is the payload for UDP broadcast discovery.
+  DeviceDiscoveryService({
+    DeviceHttpClient? httpClient,
+    this.mDnsServiceName = '_http._tcp',
+    this.mDnsSearchString = 'nyaneye',
+    this.udpRequestString = 'DISCOVER_ESP32_REQ',
+  }) : _httpClient = httpClient ?? DeviceHttpClient();
 
   /// Scans the local network for ESP32 devices.
-  /// 
-  /// Returns a list of [DeviceInfo] for all discovered and verified devices.
-  /// [timeout] defines how long to wait for discovery responses.
   Future<List<DeviceInfo>> discoverEsp32DevicesOnLan({
     Duration timeout = const Duration(seconds: 3),
   }) async {
@@ -29,10 +35,10 @@ class DeviceDiscoveryService {
 
     Future<void> runMDNS() async {
       try {
-        final discovery = await nsd.startDiscovery('_http._tcp');
+        final discovery = await nsd.startDiscovery(mDnsServiceName);
         await Future.delayed(timeout);
         for (final service in discovery.services) {
-          if (service.name != null && service.name!.toLowerCase().contains('nyaneye')) {
+          if (service.name != null && service.name!.toLowerCase().contains(mDnsSearchString.toLowerCase())) {
             try {
               final resolvedService = await nsd.resolve(service);
               final host = resolvedService.host;
@@ -56,7 +62,7 @@ class DeviceDiscoveryService {
       try {
         final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
         socket.broadcastEnabled = true;
-        final data = utf8.encode('DISCOVER_ESP32_REQ');
+        final data = utf8.encode(udpRequestString);
 
         final targets = <InternetAddress>{};
         try {

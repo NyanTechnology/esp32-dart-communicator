@@ -6,13 +6,22 @@ import 'package:nsd/nsd.dart' as nsd;
 import '../models/device_info.dart';
 import 'device_http_client.dart';
 
+/// Service for discovering ESP32 devices on the local area network.
+/// 
+/// Utilizes both mDNS and UDP broadcast for robust discovery.
 class DeviceDiscoveryService {
   final DeviceHttpClient _httpClient;
 
+  /// Creates a new [DeviceDiscoveryService].
+  /// 
+  /// An optional [httpClient] can be provided for fetching device info after discovery.
   DeviceDiscoveryService({DeviceHttpClient? httpClient})
       : _httpClient = httpClient ?? DeviceHttpClient();
 
-  /// mDNS (主要) 与 UDP 广播 (后备) 双路探测局域网内设备。
+  /// Scans the local network for ESP32 devices.
+  /// 
+  /// Returns a list of [DeviceInfo] for all discovered and verified devices.
+  /// [timeout] defines how long to wait for discovery responses.
   Future<List<DeviceInfo>> discoverEsp32DevicesOnLan({
     Duration timeout = const Duration(seconds: 3),
   }) async {

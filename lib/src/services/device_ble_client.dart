@@ -3,17 +3,29 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+/// Client for communicating with ESP32 devices via Bluetooth Low Energy (BLE).
+/// 
+/// Primarily used for initial provisioning and out-of-band control.
 class DeviceBleClient {
+  /// The default service UUID for NyanEye control.
   static const String serviceUuid = '4fafc201-1fb5-459e-8bcc-c5c9c331914b';
+  
+  /// The default characteristic UUID for control commands and notifications.
   static const String charUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
+  /// The underlying [BluetoothDevice] from `flutter_blue_plus`.
   final BluetoothDevice device;
+  
   BluetoothCharacteristic? _controlChar;
   StreamSubscription? _notifySub;
   Completer<Map<String, dynamic>>? _responseCompleter;
 
+  /// Creates a new [DeviceBleClient] for the given [device].
   DeviceBleClient(this.device);
 
+  /// Initializes the client by discovering services and enabling notifications.
+  /// 
+  /// Throws an [Exception] if the required service or characteristic is not found.
   Future<void> init() async {
     await _notifySub?.cancel();
     final services = await device.discoverServices().timeout(const Duration(seconds: 10));
@@ -44,6 +56,9 @@ class DeviceBleClient {
     }
   }
 
+  /// Sends a JSON-encoded command to the device and waits for a response.
+  /// 
+  /// The device must be [init]ialized before calling this.
   Future<Map<String, dynamic>> sendCommand(Map<String, dynamic> payload, {int timeoutSec = 15}) async {
     if (_controlChar == null) throw Exception('BleClient not initialized');
     _responseCompleter = Completer<Map<String, dynamic>>();
@@ -67,6 +82,7 @@ class DeviceBleClient {
     }
   }
 
+  /// Disposes of the client and cancels active subscriptions.
   void dispose() {
     _notifySub?.cancel();
   }

@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/device_info.dart';
 
+/// Client for communicating with ESP32 devices via HTTP REST API.
 class DeviceHttpClient {
-  /// 尝试向特定地址拉取设备信息
+  /// Fetches device information from a specific [baseUrl].
+  /// 
+  /// Returns [DeviceInfo] if successful, otherwise null.
   Future<DeviceInfo?> fetchDeviceInfo(
     String baseUrl, {
     Duration timeout = const Duration(seconds: 4),
@@ -32,7 +35,10 @@ class DeviceHttpClient {
     return null;
   }
 
-  /// 上传眼片文件数据到设备
+  /// Uploads raw eye asset data to the device.
+  /// 
+  /// [data] is the binary content of the file.
+  /// [filename] is the name to save the file as on the device.
   Future<bool> uploadEyeData(String baseUrl, Uint8List data, String filename) async {
     try {
       final uploadUri = Uri.parse('$baseUrl/api/upload');
@@ -45,7 +51,9 @@ class DeviceHttpClient {
     }
   }
 
-  /// 触发设备应用眼片文件
+  /// Commands the device to apply specific eye configurations.
+  /// 
+  /// [leftFilename] and [rightFilename] refer to assets previously uploaded to the device.
   Future<bool> applyEyeConfigs(
     String baseUrl,
     String leftFilename,

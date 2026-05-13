@@ -88,11 +88,15 @@ flutter test
 **前提条件：** 已安装 [Dart SDK](https://dart.dev/get-dart)。
 
 ```bash
+# 进入工具目录并获取依赖
+cd tools
+dart pub get
+
 # 查看帮助和所有可用的测试选项
-dart tools/debug_device.dart --help
+dart debug_device.dart --help
 
 # 测试特定功能（例如：只测试设备信息和上传）
-dart tools/debug_device.dart <你的设备IP> --info --upload
+dart debug_device.dart <你的设备IP> --info --upload
 ```
 
 可用选项：`--info`, `--upload`, `--apply`, `--negative`, `--all`。

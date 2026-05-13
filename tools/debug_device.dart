@@ -70,24 +70,42 @@ Future<void> _testDeviceInfo(http.Client client, String baseUrl) async {
     }
     print('  ✅ HTTP 200 OK');
     final Map<String, dynamic> data = json.decode(response.body);
-    final requiredFields = ['firmware', 'mode', 'apSsid', 'apIp', 'apClients', 'staConnected'];
-    for (var field in requiredFields) {
-      if (data.containsKey(field)) {
-        print('  ✅ Field [$field]: ${data[field]}');
+    final mode = data['mode'] ?? '';
+    final isAP = mode.toString().toLowerCase().contains('ap');
+    
+    final fields = {
+      'firmware': true,
+      'mode': true,
+      'staConnected': true,
+      'isManager': false, // Optional, defaults to false in app
+      'apSsid': isAP,
+      'apIp': isAP,
+      'apClients': isAP,
+    };
+
+    fields.forEach((field, required) {
+      if (data.containsKey(field) || data.containsKey(_toSnakeCase(field))) {
+        print('  ✅ Field [$field]: ${data[field] ?? data[_toSnakeCase(field)]}');
+      } else if (required) {
+        print('  ❌ FAIL: Missing required field [$field]');
       } else {
-        print('  ⚠️  WARNING: Missing field [$field]');
+        print('  ℹ️  Optional field [$field] omitted (Mode: $mode)');
       }
-    }
+    });
   } catch (e) {
     print('  ❌ ERROR: $e');
   }
   print('');
 }
 
+String _toSnakeCase(String input) {
+  return input.replaceAllMapped(RegExp(r'([A-Z])'), (match) => '_${match.group(1)!.toLowerCase()}');
+}
+
 Future<void> _testUploadRobustness(http.Client client, String baseUrl) async {
   print('[STEP] Robustness Test: POST /api/upload');
-  await _performUpload(client, baseUrl, 'small.bin', 100, 'Small Payload');
-  await _performUpload(client, baseUrl, 'standard.bin', 50 * 1024, 'Standard Asset (50KB)');
+  await _performUpload(client, baseUrl, 'test_small.eye', 100, 'Small Payload (.eye)');
+  await _performUpload(client, baseUrl, 'test_std.eye', 50 * 1024, 'Standard Asset (50KB .eye)');
   print('');
 }
 
@@ -97,7 +115,13 @@ Future<void> _performUpload(http.Client client, String baseUrl, String filename,
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/upload'));
     request.files.add(http.MultipartFile.fromBytes('file', Uint8List(size), filename: filename));
     final streamedResponse = await client.send(request).timeout(Duration(seconds: 30));
-    print(streamedResponse.statusCode == 200 ? '    ✅ Success' : '    ❌ FAIL: ${streamedResponse.statusCode}');
+    final respBody = await streamedResponse.stream.bytesToString();
+    if (streamedResponse.statusCode == 200) {
+      print('    ✅ Success');
+    } else {
+      print('    ❌ FAIL: ${streamedResponse.statusCode}');
+      if (respBody.isNotEmpty) print('       Msg: $respBody');
+    }
   } catch (e) {
     print('    ❌ ERROR: $e');
   }
@@ -106,13 +130,20 @@ Future<void> _performUpload(http.Client client, String baseUrl, String filename,
 Future<void> _testApplyLogic(http.Client client, String baseUrl) async {
   print('[STEP] Parameter Validation: GET /api/eyes/apply');
   try {
+    // Note: We use the files we (hopefully) just uploaded
     final uri = Uri.parse('$baseUrl/api/eyes/apply').replace(queryParameters: {
-      'left': '/images/L.bin',
-      'right': '/images/R.bin',
+      'left': '/images/test_small.eye',
+      'right': '/images/test_small.eye',
       'leftMirror': 'true',
     });
+    print('  Requesting: ${uri.path}${uri.query.isNotEmpty ? '?' + uri.query : ''}');
     final resp = await client.get(uri).timeout(Duration(seconds: 10));
-    print(resp.statusCode == 200 ? '  ✅ Success' : '  ❌ FAIL: ${resp.statusCode}');
+    if (resp.statusCode == 200) {
+      print('  ✅ Success');
+    } else {
+      print('  ❌ FAIL: ${resp.statusCode}');
+      if (resp.body.isNotEmpty) print('     Msg: ${resp.body}');
+    }
   } catch (e) {
     print('  ❌ ERROR: $e');
   }

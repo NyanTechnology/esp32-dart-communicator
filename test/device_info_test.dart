@@ -96,5 +96,39 @@ void main() {
       expect(deviceInfo.staConnected, false);
       expect(deviceInfo.isManager, false);
     });
+
+    test('toJson should correctly serialize DeviceInfo fields', () {
+      final deviceInfo = DeviceInfo(
+        firmware: '1.2.3',
+        mode: 'STA',
+        apSsid: 'ESP32_SSID',
+        apIp: '192.168.4.1',
+        apClients: 3,
+        staSsid: 'HomeWiFi',
+        staConnected: true,
+        staIp: '192.168.1.50',
+        mdnsHost: 'device.local',
+        mdnsUrl: 'http://device.local',
+        managerHost: 'manager.local',
+        managerUrl: 'http://manager.local',
+        isManager: true,
+      );
+
+      final json = deviceInfo.toJson();
+
+      expect(json['firmware'], '1.2.3');
+      expect(json['mode'], 'STA');
+      expect(json['apSsid'], 'ESP32_SSID');
+      expect(json['apIp'], '192.168.4.1');
+      expect(json['apClients'], 3);
+      expect(json['staSsid'], 'HomeWiFi');
+      expect(json['staConnected'], true);
+      expect(json['staIp'], '192.168.1.50');
+      expect(json['mdnsHost'], 'device.local');
+      expect(json['mdnsUrl'], 'http://device.local');
+      expect(json['managerHost'], 'manager.local');
+      expect(json['managerUrl'], 'http://manager.local');
+      expect(json['isManager'], true);
+    });
   });
 }

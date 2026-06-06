@@ -52,4 +52,20 @@ class DeviceInfo {
       isManager: (json['isManager'] ?? json['is_manager']) == true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'firmware': firmware,
+        'mode': mode,
+        'apSsid': apSsid,
+        'apIp': apIp,
+        'apClients': apClients,
+        'staConnected': staConnected,
+        'isManager': isManager,
+        'staSsid': staSsid,
+        'staIp': staIp,
+        'mdnsHost': mdnsHost,
+        'mdnsUrl': mdnsUrl,
+        'managerHost': managerHost,
+        'managerUrl': managerUrl,
+      };
 }

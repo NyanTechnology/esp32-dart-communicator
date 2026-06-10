@@ -88,15 +88,11 @@ If you are developing the ESP32 firmware and want to test your API compatibility
 **Prerequisites:** [Dart SDK](https://dart.dev/get-dart) installed.
 
 ```bash
-# Enter tools directory and get dependencies
-cd tools
-dart pub get
-
 # Show help and available test options
-dart debug_device.dart --help
+dart tools/debug_device.dart --help
 
 # Test specific features (e.g., only Info and Upload)
-dart debug_device.dart <your_device_ip> --info --upload
+dart tools/debug_device.dart <your_device_ip> --info --upload
 ```
 
 Available flags: `--info`, `--upload`, `--apply`, `--negative`, `--all`.

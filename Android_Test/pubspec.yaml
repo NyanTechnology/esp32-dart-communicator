@@ -1,0 +1,25 @@
+name: nyaneyes_tester
+description: A minimal functional tester for NyanEyes BLE and HTTP communication.
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_blue_plus: ^2.3.2
+  nsd: ^5.0.1
+  file_picker: ^8.0.0
+  http: ^1.2.1
+  esp32_comm:
+    path: ..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

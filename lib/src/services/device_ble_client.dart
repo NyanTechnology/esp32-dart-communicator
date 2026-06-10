@@ -32,6 +32,7 @@ class DeviceBleClient {
   Future<void> init() async {
     await _notifySub?.cancel();
     final services = await device.discoverServices().timeout(const Duration(seconds: 10));
+
     for (final s in services) {
       if (s.uuid.toString().toLowerCase() == serviceUuid.toLowerCase()) {
         for (final c in s.characteristics) {

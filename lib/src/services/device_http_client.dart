@@ -75,4 +75,18 @@ class DeviceHttpClient {
       return false;
     }
   }
+
+  /// Soft resets the device back to Provisioning Mode.
+  Future<bool> resetDevice(
+    String baseUrl, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final resetUri = Uri.parse('$baseUrl/api/reset');
+      final resp = await _client.get(resetUri).timeout(timeout);
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

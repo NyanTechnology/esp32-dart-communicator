@@ -203,4 +203,36 @@ class DeviceHttpClient {
     } catch (_) {}
     return null;
   }
+
+  /// Synchronizes the device's internal RTC clock with the mobile phone's high-precision time.
+  /// 
+  /// Returns the synchronized local time string if successful, otherwise null.
+  Future<String?> syncDeviceTime(
+    String baseUrl, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final syncUri = Uri.parse('$baseUrl/api/time/sync');
+      final now = DateTime.now();
+      final timestampSeconds = now.millisecondsSinceEpoch ~/ 1000;
+      final timezoneOffsetHours = now.timeZoneOffset.inHours;
+
+      final resp = await _client.post(
+        syncUri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'timestamp': timestampSeconds,
+          'timezone_offset_hours': timezoneOffsetHours,
+        }),
+      ).timeout(timeout);
+
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        if (data['status'] == 'success') {
+          return data['synchronized_time'] as String?;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
 }

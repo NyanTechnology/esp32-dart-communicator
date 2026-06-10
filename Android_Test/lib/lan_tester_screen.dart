@@ -333,6 +333,22 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     }
   }
 
+  void _syncTime() async {
+    if (_selectedBaseUrl == null) return;
+    _log('正在向 C3 发送网络时间同步指令...');
+    try {
+      final timeStr = await _httpClient.syncDeviceTime(_selectedBaseUrl!);
+      if (!mounted) return;
+      if (timeStr != null) {
+        _log('🎉 时间同步成功！C3 内部 RTC 时钟已校准为: $timeStr');
+      } else {
+        _log('❌ 时间同步失败，可能设备未响应。');
+      }
+    } catch (e) {
+      _log('时间同步异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -487,6 +503,25 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                             child: Padding(
                               padding: const EdgeInsets.all(2.0),
                               child: Icon(Icons.refresh, size: 12, color: Colors.blue[200]),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(Icons.access_time, size: 14, color: Colors.indigoAccent[100]),
+                          const SizedBox(width: 4),
+                          TextButton(
+                            onPressed: _syncTime,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              '同步系统时间',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.indigoAccent[100],
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ],

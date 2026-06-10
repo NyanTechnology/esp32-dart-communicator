@@ -13,7 +13,9 @@
 - [ ] **5. 电量数据读取与上报** (Battery Level GET)
 - [ ] **6. 基础连接性检测 (Ping)** (Connectivity Heartbeat Check)
 - [ ] **7. 用户信息/云端绑定配置** (User Profile / Binding Info POST)
-- [ ] **8. 节能/休眠控制指令** (Power Saving & Sleep Mode Command)
+- [ ] **8. 节能/休眠控制指令 [已延后]** (Power Saving & Sleep Mode Command - Postponed)
+- [ ] **9. 屏幕每日累计显示时长获取 (GET)** (Daily Display Active Duration GET)
+- [ ] **10. 系统时间同步功能 (POST)** (System Time Synchronization POST)
 
 ---
 
@@ -149,7 +151,7 @@
 
 ---
 
-### 8. 节能与睡眠控制指令
+### 8. 节能与睡眠控制指令 [已延后]
 提供局域网一键关机或控制进入超低功耗节电模式的功能。
 
 *   **请求路由**：`POST /api/power/sleep`
@@ -171,5 +173,42 @@
     {
       "status": "success",
       "message": "entering_sleep_mode"
+    }
+    ```
+
+---
+
+### 9. 屏幕每日累计显示时长获取 (GET)
+用于手机 App 抓取并统计该设备今日累计开启双屏显示的总时长（单位：秒）。
+
+*   **请求路由**：`GET /api/display/duration`
+*   **设备端行为**：设备端会自开机起，以及通过 RTC 记录每日的显示模块工作时长，并累加返回。
+*   **设备端响应 (JSON 200 OK)**：
+    ```json
+    {
+      "daily_duration_seconds": 18200   // 累计今日亮屏使用时间（5小时3分20秒）
+    }
+    ```
+
+---
+
+### 10. 系统时间同步功能 (POST)
+用于使设备内部的硬件 RTC 时钟与手机当前的高精度时间进行同步（包含时间戳和时区偏移）。
+
+*   **请求路由**：`POST /api/time/sync`
+*   **请求内容 (JSON)**：
+    ```json
+    {
+      "timestamp": 1781084775,           // 手机当前 Unix 时间戳
+      "timezone_offset_hours": 8         // 手机当前的本地时区偏移量（如北京时间 +8）
+    }
+    ```
+*   **设备端行为**：接收并解调时间参数，通过 ESP-IDF 的 `settimeofday` 设置系统底层 RTC，实现离线高精度时钟对齐。
+*   **设备端响应 (JSON 200 OK)**：
+    ```json
+    {
+      "status": "success",
+      "message": "time_synchronized",
+      "synchronized_time": "2026-06-10 17:15:00" // 同步后的设备本地可视化时间
     }
     ```

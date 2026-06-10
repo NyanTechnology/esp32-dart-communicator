@@ -35,7 +35,9 @@ class DeviceHttpClient {
         }
         return DeviceInfo.fromJson(data);
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) { debugPrint('fetchDeviceInfo Error: $e'); }
+    }
     return null;
   }
 
@@ -149,6 +151,31 @@ class DeviceHttpClient {
         body: json.encode({
           'user_id': userId,
           'bind_token': bindToken,
+        }),
+      ).timeout(timeout);
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Commands the device to enter low power sleep/standby mode.
+  /// 
+  /// Returns true if successful, otherwise false.
+  Future<bool> enterSleepMode(
+    String baseUrl, {
+    int sleepSeconds = 3600,
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final sleepUri = Uri.parse('$baseUrl/api/power/sleep');
+      final resp = await _client.post(
+        sleepUri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'action': 'ENTER_SLEEP',
+          'sleep_seconds': sleepSeconds,
+          'disable_backlight': true,
         }),
       ).timeout(timeout);
       return resp.statusCode == 200;

@@ -256,6 +256,43 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     }
   }
 
+  void _enterSleepMode() async {
+    if (_selectedBaseUrl == null) return;
+
+    _log('⚠️ 正在向 C3 发送一键进入低功耗待机命令...');
+    try {
+      final success = await _httpClient.enterSleepMode(_selectedBaseUrl!);
+      if (!mounted) return;
+      if (success) {
+        _log('🎉 远程待机命令成功！C3 屏幕已硬熄灭，系统射频进入低电量轻休眠监听状态。');
+        _log('💡 提示：在 App 中重新点击任意“应用眼部配置”指令，设备即可瞬间自动唤醒！');
+        setState(() {
+          _selectedDevice = DeviceInfo(
+            firmware: _selectedDevice!.firmware,
+            mode: _selectedDevice!.mode,
+            apSsid: _selectedDevice!.apSsid,
+            apIp: _selectedDevice!.apIp,
+            apClients: _selectedDevice!.apClients,
+            staConnected: _selectedDevice!.staConnected,
+            isManager: _selectedDevice!.isManager,
+            staSsid: _selectedDevice!.staSsid,
+            staIp: _selectedDevice!.staIp,
+            mdnsHost: _selectedDevice!.mdnsHost,
+            mdnsUrl: _selectedDevice!.mdnsUrl,
+            managerHost: _selectedDevice!.managerHost,
+            managerUrl: _selectedDevice!.managerUrl,
+            batteryLevel: _selectedDevice!.batteryLevel,
+            powerSavingMode: true,
+          );
+        });
+      } else {
+        _log('❌ 待机命令发送失败。');
+      }
+    } catch (e) {
+      _log('待机发生异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -503,17 +540,29 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       ),
                       const Divider(height: 24),
                       
-                      // 3. 远程软重置区域
+                      // 3. 系统维护与模式重置
                       const Text('3. 系统维护与模式重置', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
                       const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _resetDevice,
-                          icon: const Icon(Icons.settings_backup_restore, color: Colors.white),
-                          label: const Text('恢复出厂设置 / 重新蓝牙配网', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red[900]),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _enterSleepMode,
+                              icon: const Icon(Icons.power_settings_new, color: Colors.white),
+                              label: const Text('一键休眠待机', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[900]),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _resetDevice,
+                              icon: const Icon(Icons.settings_backup_restore, color: Colors.white),
+                              label: const Text('恢复出厂设置', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red[900]),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

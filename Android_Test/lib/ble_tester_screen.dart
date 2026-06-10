@@ -28,6 +28,7 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
   final _passController = TextEditingController(text: 'My_Password_123');
   final _tokenController = TextEditingController(text: 'token_xyz');
   final _localKeyController = TextEditingController(text: 'my_secure_key_321');
+  final _bleEyeController = TextEditingController(text: 'test_anim.gif');
   bool _relayState = false;
 
   // Console Logs
@@ -224,6 +225,25 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     }
   }
 
+  void _sendBleApplyEyes() async {
+    if (_bleClient == null) return;
+    final filename = _bleEyeController.text.trim();
+    if (filename.isEmpty) return;
+
+    final payload = {
+      'action': 'APPLY_EYES',
+      'left': filename,
+    };
+
+    _log('蓝牙发送切换表情指令 -> $filename');
+    try {
+      final response = await _bleClient!.sendCommand(payload, timeoutSec: 10);
+      _log('C3 蓝牙回复 -> $response');
+    } catch (e) {
+      _log('命令发送失败: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -370,6 +390,28 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _relayState ? Colors.green : Colors.grey[700],
                                 ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('3. 蓝牙直连切换表情', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _bleEyeController,
+                                decoration: const InputDecoration(labelText: '表情文件名 (如 test_anim.gif)', border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _sendBleApplyEyes,
+                              icon: const Icon(Icons.play_circle_outline),
+                              label: const Text('蓝牙刷新'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.amber[800],
                               ),
                             ),
                           ],

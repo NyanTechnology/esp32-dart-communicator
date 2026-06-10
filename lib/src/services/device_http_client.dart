@@ -89,4 +89,71 @@ class DeviceHttpClient {
       return false;
     }
   }
+
+  /// Fetches the battery level independently from the device via HTTP.
+  /// 
+  /// Returns the battery level as a percentage (0-100) if successful, otherwise null.
+  Future<int?> fetchBatteryLevel(
+    String baseUrl, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final batteryUri = Uri.parse('$baseUrl/api/battery');
+      final resp = await _client.get(batteryUri).timeout(timeout);
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        final val = data['battery_level'];
+        if (val is int) return val;
+        if (val is String) return int.tryParse(val);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Pings the device via HTTP to test connection and measure latency (RTT).
+  /// 
+  /// Returns the RTT duration in milliseconds if successful, otherwise null.
+  Future<int?> pingDevice(
+    String baseUrl, {
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final pingUri = Uri.parse('$baseUrl/api/ping');
+      final resp = await _client.get(pingUri).timeout(timeout);
+      stopwatch.stop();
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        if (data['status'] == 'pong') {
+          return stopwatch.elapsedMilliseconds;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Sends user binding information to the device over HTTP.
+  /// 
+  /// Returns true if successful, otherwise false.
+  Future<bool> bindUser(
+    String baseUrl,
+    String userId,
+    String bindToken, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final bindUri = Uri.parse('$baseUrl/api/user/bind');
+      final resp = await _client.post(
+        bindUri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': userId,
+          'bind_token': bindToken,
+        }),
+      ).timeout(timeout);
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

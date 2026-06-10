@@ -21,6 +21,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
   // Controllers
   final _manualIpController = TextEditingController(text: '10.20.0.163');
+  final _userIdController = TextEditingController(text: 'usr_94883199');
+  final _bindTokenController = TextEditingController(text: 'token_abcdefg_9988');
   final _leftFilenameController = TextEditingController(text: 'test_anim.gif');
   final _rightFilenameController = TextEditingController(text: 'test_anim.gif');
   bool _leftMirror = false;
@@ -179,6 +181,81 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     }
   }
 
+  void _refreshBattery() async {
+    if (_selectedBaseUrl == null) return;
+    _log('正在通过局域网独立获取电量 /api/battery ...');
+    try {
+      final val = await _httpClient.fetchBatteryLevel(_selectedBaseUrl!);
+      if (!mounted) return;
+      if (val != null) {
+        _log('🎉 独立电量抓取成功: $val%');
+        setState(() {
+          _selectedDevice = DeviceInfo(
+            firmware: _selectedDevice!.firmware,
+            mode: _selectedDevice!.mode,
+            apSsid: _selectedDevice!.apSsid,
+            apIp: _selectedDevice!.apIp,
+            apClients: _selectedDevice!.apClients,
+            staConnected: _selectedDevice!.staConnected,
+            isManager: _selectedDevice!.isManager,
+            staSsid: _selectedDevice!.staSsid,
+            staIp: _selectedDevice!.staIp,
+            mdnsHost: _selectedDevice!.mdnsHost,
+            mdnsUrl: _selectedDevice!.mdnsUrl,
+            managerHost: _selectedDevice!.managerHost,
+            managerUrl: _selectedDevice!.managerUrl,
+            batteryLevel: val,
+            powerSavingMode: _selectedDevice!.powerSavingMode,
+          );
+        });
+      } else {
+        _log('❌ 独立电量抓取失败。');
+      }
+    } catch (e) {
+      _log('电量抓取异常: $e');
+    }
+  }
+
+  void _pingDevice() async {
+    if (_selectedBaseUrl == null) return;
+    _log('正在向 C3 发送网络检测请求 (HTTP Ping) ...');
+    try {
+      final rtt = await _httpClient.pingDevice(_selectedBaseUrl!);
+      if (!mounted) return;
+      if (rtt != null) {
+        _log('🎉 网络正常！Ping 成功，往返时延 RTT: $rtt ms | 状态: pong');
+      } else {
+        _log('❌ 网络异常或超时！C3 无响应。');
+      }
+    } catch (e) {
+      _log('网络检测异常: $e');
+    }
+  }
+
+  void _bindUser() async {
+    if (_selectedBaseUrl == null) return;
+    final userId = _userIdController.text.trim();
+    final token = _bindTokenController.text.trim();
+
+    if (userId.isEmpty || token.isEmpty) {
+      _log('❌ 绑定失败: 用户 ID 或 Token 不能为空');
+      return;
+    }
+
+    _log('正在向 C3 发送云端绑定请求...');
+    try {
+      final success = await _httpClient.bindUser(_selectedBaseUrl!, userId, token);
+      if (!mounted) return;
+      if (success) {
+        _log('🎉 绑定成功！C3 已接收到用户信息，正在后台启动云端注册上报 (cloud_binding_task) ...');
+      } else {
+        _log('❌ 绑定失败，可能接口未响应。');
+      }
+    } catch (e) {
+      _log('绑定异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -197,7 +274,13 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
               const SizedBox(width: 8),
               if (_isDiscovering) const CircularProgressIndicator(),
               const Spacer(),
-              if (_selectedBaseUrl != null)
+              if (_selectedBaseUrl != null) ...[
+                TextButton.icon(
+                  onPressed: _pingDevice,
+                  icon: const Icon(Icons.network_check, color: Colors.greenAccent),
+                  label: const Text('网络检测 (Ping)', style: TextStyle(color: Colors.greenAccent)),
+                ),
+                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
@@ -209,6 +292,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                   icon: const Icon(Icons.close, color: Colors.amber),
                   label: const Text('释放设备', style: TextStyle(color: Colors.amber)),
                 ),
+              ],
             ],
           ),
         ),
@@ -289,6 +373,27 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                     children: [
                       Text('活动控制台: $_selectedBaseUrl', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
                       Text('设备 Wi-Fi 网卡: ${_selectedDevice!.staSsid} (IP: ${_selectedDevice!.staIp})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.battery_charging_full, size: 14, color: Colors.green[400]),
+                          const SizedBox(width: 4),
+                          Text('电量: ${_selectedDevice!.batteryLevel ?? 100}%', style: TextStyle(fontSize: 12, color: Colors.green[400])),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: _refreshBattery,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.0),
+                              child: Icon(Icons.refresh, size: 12, color: Colors.green[200]),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(Icons.energy_savings_leaf, size: 14, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400]),
+                          const SizedBox(width: 4),
+                          Text('节电模式: ${_selectedDevice!.powerSavingMode == true ? "开启" : "关闭"}', style: TextStyle(fontSize: 12, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400])),
+                        ],
+                      ),
                       const Divider(),
 
                       // 1. HTTP 动图上传区域
@@ -361,6 +466,38 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           onPressed: _applyEyes,
                           icon: const Icon(Icons.play_circle_outline),
                           label: const Text('应用眼部配置 GET /apply'),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      
+                      // 用户与云端绑定配对
+                      const Text('用户与云端绑定配对', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _userIdController,
+                              decoration: const InputDecoration(labelText: '用户 ID', border: OutlineInputBorder()),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _bindTokenController,
+                              decoration: const InputDecoration(labelText: '绑定 Token', border: OutlineInputBorder()),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _bindUser,
+                          icon: const Icon(Icons.cloud_upload),
+                          label: const Text('上传并激活云端绑定 POST /user/bind'),
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
                         ),
                       ),

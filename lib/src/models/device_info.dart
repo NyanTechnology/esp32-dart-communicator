@@ -13,6 +13,8 @@ class DeviceInfo {
     this.mdnsUrl,
     this.managerHost,
     this.managerUrl,
+    this.batteryLevel,
+    this.powerSavingMode,
   });
 
   final String firmware;
@@ -28,6 +30,8 @@ class DeviceInfo {
   final String? managerHost;
   final String? managerUrl;
   final bool isManager;
+  final int? batteryLevel;
+  final bool? powerSavingMode;
 
   factory DeviceInfo.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic value) {
@@ -50,6 +54,8 @@ class DeviceInfo {
       managerHost: (json['managerHost'] ?? json['manager_host']) as String?,
       managerUrl: (json['managerUrl'] ?? json['manager_url']) as String?,
       isManager: (json['isManager'] ?? json['is_manager']) == true,
+      batteryLevel: json['battery_level'] != null ? parseInt(json['battery_level']) : null,
+      powerSavingMode: json['power_saving_mode'] as bool?,
     );
   }
 }

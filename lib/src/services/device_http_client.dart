@@ -183,4 +183,24 @@ class DeviceHttpClient {
       return false;
     }
   }
+
+  /// Fetches the daily accumulated screen active duration (in seconds) from the device via HTTP.
+  /// 
+  /// Returns the duration in seconds if successful, otherwise null.
+  Future<int?> fetchDisplayDuration(
+    String baseUrl, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final durationUri = Uri.parse('$baseUrl/api/display/duration');
+      final resp = await _client.get(durationUri).timeout(timeout);
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        final val = data['daily_duration_seconds'];
+        if (val is int) return val;
+        if (val is String) return int.tryParse(val);
+      }
+    } catch (_) {}
+    return null;
+  }
 }

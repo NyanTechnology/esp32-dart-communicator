@@ -18,6 +18,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
   bool _isDiscovering = false;
   DeviceInfo? _selectedDevice;
   String? _selectedBaseUrl;
+  int? _displayDurationSeconds;
 
   // Controllers
   final _manualIpController = TextEditingController(text: '10.20.0.163');
@@ -88,8 +89,18 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         setState(() {
           _selectedDevice = info;
           _selectedBaseUrl = baseUrl;
+          _displayDurationSeconds = null;
         });
         _log('抓取成功！固件版本: ${info.firmware} | 连网状态: ${info.staConnected ? "已连接" : "未连接"}');
+
+        // Auto fetch screen active duration
+        final duration = await _httpClient.fetchDisplayDuration(baseUrl);
+        if (mounted && duration != null) {
+          setState(() {
+            _displayDurationSeconds = duration;
+          });
+          _log('🎉 累计亮屏时间已同步: ${_formatDuration(duration)}');
+        }
       } else {
         _log('抓取失败，HTTP 返回非 200 或网络不可达。');
       }
@@ -293,6 +304,35 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     }
   }
 
+  String _formatDuration(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    final hStr = hours > 0 ? '$hours小时' : '';
+    final mStr = minutes > 0 ? '$minutes分' : '';
+    return '$hStr$mStr$seconds秒';
+  }
+
+  void _refreshDuration() async {
+    if (_selectedBaseUrl == null) return;
+    _log('正在向 C3 抓取亮屏累计时间 /api/display/duration ...');
+    try {
+      final seconds = await _httpClient.fetchDisplayDuration(_selectedBaseUrl!);
+      if (!mounted) return;
+      if (seconds != null) {
+        _log('🎉 今日累计亮屏时间: ${_formatDuration(seconds)}');
+        setState(() {
+          _displayDurationSeconds = seconds;
+        });
+      } else {
+        _log('❌ 亮屏时间抓取失败。');
+      }
+    } catch (e) {
+      _log('时间抓取异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -429,6 +469,26 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           Icon(Icons.energy_savings_leaf, size: 14, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400]),
                           const SizedBox(width: 4),
                           Text('节电模式: ${_selectedDevice!.powerSavingMode == true ? "开启" : "关闭"}', style: TextStyle(fontSize: 12, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400])),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.timer, size: 14, color: Colors.blue[300]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '今日累计亮屏: ${_displayDurationSeconds != null ? _formatDuration(_displayDurationSeconds!) : "0秒"}',
+                            style: TextStyle(fontSize: 12, color: Colors.blue[300]),
+                          ),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: _refreshDuration,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.0),
+                              child: Icon(Icons.refresh, size: 12, color: Colors.blue[200]),
+                            ),
+                          ),
                         ],
                       ),
                       const Divider(),

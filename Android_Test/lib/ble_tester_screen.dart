@@ -244,6 +244,81 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     }
   }
 
+  void _sendBlePing() async {
+    if (_bleClient == null) return;
+    _log('开始蓝牙高频心跳探测 (Ping) ...');
+    final sw = Stopwatch()..start();
+    try {
+      final response = await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
+      sw.stop();
+      if (response['status'] == 'success') {
+        _log('🎉 蓝牙 Ping 成功！往返时延 RTT: ${sw.elapsedMilliseconds} ms | 状态: ${response['message']}');
+      } else {
+        _log('❌ 蓝牙 Ping 失败: $response');
+      }
+    } catch (e) {
+      _log('蓝牙 Ping 异常: $e');
+    }
+  }
+
+  void _sendBleSyncTime() async {
+    if (_bleClient == null) return;
+    _log('开始发送手机高精度时间同步 C3 RTC ...');
+    final now = DateTime.now();
+    final timestamp = now.millisecondsSinceEpoch ~/ 1000;
+    final tzOffset = now.timeZoneOffset.inHours;
+    try {
+      final response = await _bleClient!.sendCommand({
+        'action': 'SYNC_TIME',
+        'timestamp': timestamp,
+        'timezone_offset_hours': tzOffset,
+      }, timeoutSec: 5);
+      if (response['status'] == 'success') {
+        _log('🎉 蓝牙时间同步成功！C3 RTC 已校准为: ${response['message']}');
+      } else {
+        _log('❌ 时间同步失败: $response');
+      }
+    } catch (e) {
+      _log('时间同步异常: $e');
+    }
+  }
+
+  void _sendBleGetDuration() async {
+    if (_bleClient == null) return;
+    _log('正在通过蓝牙抓取设备今日累计亮屏时长 ...');
+    try {
+      final response = await _bleClient!.sendCommand({'action': 'GET_DURATION'}, timeoutSec: 5);
+      if (response['status'] == 'success') {
+        final secondsStr = response['message'] as String? ?? '0';
+        final seconds = int.tryParse(secondsStr) ?? 0;
+        final hours = seconds ~/ 3600;
+        final minutes = (seconds % 3600) ~/ 60;
+        final secs = seconds % 60;
+        final durationStr = '${hours > 0 ? "$hours小时" : ""}${minutes > 0 ? "$minutes分" : ""}$secs秒';
+        _log('🎉 设备累计工作亮屏时长: $durationStr ($seconds 秒)');
+      } else {
+        _log('❌ 亮屏时长抓取失败: $response');
+      }
+    } catch (e) {
+      _log('时长抓取异常: $e');
+    }
+  }
+
+  void _sendBleEnterSleep() async {
+    if (_bleClient == null) return;
+    _log('发送蓝牙熄屏休眠待机指令...');
+    try {
+      final response = await _bleClient!.sendCommand({'action': 'ENTER_SLEEP'}, timeoutSec: 5);
+      if (response['status'] == 'success') {
+        _log('🎉 待机指令下发成功！C3 屏幕已自动熄灭并进入节能待机广播。');
+      } else {
+        _log('❌ 待机指令发送失败: $response');
+      }
+    } catch (e) {
+      _log('待机发生异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -412,6 +487,52 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                               label: const Text('蓝牙刷新'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.amber[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('4. 蓝牙高阶控制功能 (与 LAN 对称)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _sendBlePing,
+                                icon: const Icon(Icons.bolt),
+                                label: const Text('蓝牙 Ping 检测'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal[800]),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _sendBleSyncTime,
+                                icon: const Icon(Icons.access_time),
+                                label: const Text('蓝牙时间同步'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _sendBleGetDuration,
+                                icon: const Icon(Icons.hourglass_empty),
+                                label: const Text('蓝牙获取亮屏'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[800]),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _sendBleEnterSleep,
+                                icon: const Icon(Icons.power_settings_new),
+                                label: const Text('蓝牙待机休眠'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[900]),
                               ),
                             ),
                           ],

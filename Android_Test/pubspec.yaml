@@ -13,6 +13,7 @@ dependencies:
   nsd: ^5.0.1
   file_picker: ^8.0.0
   http: ^1.2.1
+  image: ^4.1.3
   esp32_comm:
     path: ..
 

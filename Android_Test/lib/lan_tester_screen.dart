@@ -1,7 +1,8 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:esp32_comm/esp32_comm.dart';
 
 class LanTesterScreen extends StatefulWidget {
@@ -125,9 +126,14 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
       if (result != null && result.files.single.bytes != null) {
         final fileBytes = result.files.single.bytes!;
-        final filename = result.files.single.name;
+        final originalName = result.files.single.name;
 
-        _log('已选择文件: $filename | 大小: ${fileBytes.length} 字节');
+        // Apply SPIFFS filename limit sanitization!
+        final dotIndex = originalName.lastIndexOf('.');
+        final ext = dotIndex != -1 ? originalName.substring(dotIndex) : '';
+        final filename = sanitizeSpiffsFilename(originalName, ext);
+
+        _log('已选择文件: $originalName | 净化并适配 SPIFFS 文件名: $filename | 大小: ${fileBytes.length} 字节');
         _log('正在流式分包上传文件至 C3 (SPIFFS) ...');
 
         final success = await _httpClient.uploadEyeData(
@@ -578,10 +584,11 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       return;
     }
 
-    _log('📂 [图片转换上传] 正在打开文件选择器选择 PNG/JPG/WEBP 等图片...');
+    _log('📂 [智能转换及上传] 正在打开文件选择器选择图片 (PNG/JPG/WEBP/GIF)...');
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image, // 限制只能选择图片格式
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
         withData: true,
       );
 
@@ -594,23 +601,26 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       final originalName = result.files.single.name;
       _log('📂 已选择源图片: $originalName | 大小: ${originalBytes.length} 字节');
 
-      // 提取纯文件名（去掉后缀），重构为 .eye 文件
-      String targetFilename = originalName;
-      final dotIndex = originalName.lastIndexOf('.');
-      if (dotIndex != -1) {
-        targetFilename = '${originalName.substring(0, dotIndex)}.eye';
+      final isGif = originalName.toLowerCase().endsWith('.gif');
+      final targetExtension = isGif ? '.gif' : '.eye';
+      final targetFilename = sanitizeSpiffsFilename(originalName, targetExtension);
+
+      Uint8List? convertedBytes;
+
+      if (isGif) {
+        _log('🎬 检测到动画 GIF，启动多帧智能重采样缩放引擎 (Isolate)...');
+        convertedBytes = await compute(_resizeGifTo160InIsolate, originalBytes);
       } else {
-        targetFilename = '$originalName.eye';
+        _log('🖼️ 检测到静态图像 (PNG/JPG/WEBP)，启动硬件加速无损 RGB565 转换引擎...');
+        convertedBytes = await _convertImageToRgb565(originalBytes);
       }
 
-      // 执行转换
-      final convertedBytes = await _convertImageToRgb565(originalBytes);
       if (convertedBytes == null) {
-        _log('❌ 格式转换失败，中止上传。');
+        _log('❌ 格式转换/重采样处理失败，中止上传。');
         return;
       }
 
-      _log('🚀 正在将已转换的 $targetFilename 字节数据流式上传至 C3 (SPIFFS)...');
+      _log('🚀 正在将处理完成的 $targetFilename (${convertedBytes.length} 字节) 串行流式上传至 C3 (SPIFFS)...');
       final success = await _httpClient.uploadEyeData(
         _selectedBaseUrl!,
         convertedBytes,
@@ -618,7 +628,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       );
 
       if (success) {
-        _log('🎉 格式转换并上传成功！目标文件已安全写入 /spiffs/images/$targetFilename');
+        _log('🎉 智能转换并上传成功！目标文件已安全写入 /spiffs/images/$targetFilename');
         setState(() {
           _leftFilenameController.text = targetFilename;
           _rightFilenameController.text = targetFilename;
@@ -628,10 +638,10 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
           _applyEyes();
         }
       } else {
-        _log('❌ 上传已转换的文件失败。可能由于 C3 闪存空间不足或网络中断。');
+        _log('❌ 上传已转换的文件失败。可能由于 C3 闪存空间不足、SPIFFS 损坏或网络中断。');
       }
     } catch (e) {
-      _log('💥 图片转换及上传异常: $e');
+      _log('💥 智能转换及上传处理异常: $e');
     }
   }
 
@@ -835,7 +845,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                             child: ElevatedButton.icon(
                               onPressed: _pickConvertAndUploadImage,
                               icon: const Icon(Icons.transform, color: Colors.amberAccent),
-                              label: const Text('转换并上传 PNG/JPG', style: TextStyle(color: Colors.amberAccent)),
+                              label: const Text('智能转换 (JPG/PNG/GIF)', style: TextStyle(color: Colors.amberAccent, fontSize: 11)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.cyan[900],
                                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1044,5 +1054,55 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         ),
       ],
     );
+  }
+}
+
+/// Sanitizes a filename to fit the ESP32 SPIFFS filename limit (maximum path length of 32 characters).
+/// Given that the directory prefix is '/images/' (8 characters), the baseName + extension can be at most 23 characters.
+String sanitizeSpiffsFilename(String originalName, String extension) {
+  final dotIndex = originalName.lastIndexOf('.');
+  String baseName = dotIndex != -1 ? originalName.substring(0, dotIndex) : originalName;
+  
+  // Clean baseName of special characters, keep only standard alphanumeric characters or underscores
+  baseName = baseName.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+  if (baseName.isEmpty) {
+    baseName = 'eye_temp';
+  }
+  
+  // Max filename length including extension is 31 - 8 = 23 characters.
+  // We limit the baseName length so that baseName + extension is <= 22 characters.
+  final maxBaseLength = 22 - extension.length; // e.g. 22 - 4 (.eye or .gif) = 18 characters
+  if (baseName.length > maxBaseLength) {
+    baseName = baseName.substring(0, maxBaseLength);
+  }
+  
+  return '$baseName$extension';
+}
+
+/// Helper function to resize animated GIF using the 'image' package.
+/// This runs in a separate Isolate to keep the UI responsive.
+Uint8List? _resizeGifTo160InIsolate(Uint8List originalBytes) {
+  try {
+    final decodedImage = img.decodeGif(originalBytes);
+    if (decodedImage == null) return null;
+
+    // Check if resize is actually needed
+    if (decodedImage.width == 160 && decodedImage.height == 160) {
+      return originalBytes;
+    }
+
+    // copyResize resizes all animation frames in image v4.x automatically
+    final resized = img.copyResize(
+      decodedImage,
+      width: 160,
+      height: 160,
+      interpolation: img.Interpolation.nearest, // Fastest interpolation for pixel efficiency
+    );
+
+    final gifBytes = img.encodeGif(resized);
+    return Uint8List.fromList(gifBytes);
+  } catch (e) {
+    debugPrint('Isolate GIF resize error: $e');
+    return null;
   }
 }

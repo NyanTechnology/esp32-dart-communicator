@@ -41,6 +41,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
   }
 
   void _log(String msg) {
+    // 同时也输出到 IDE (如 VS Code) 的调试控制台
+    debugPrint('📱 [BLE] $msg');
     if (!mounted) return;
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
@@ -319,6 +321,139 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     }
   }
 
+  void _runTripleBleApplyTest() async {
+    if (_bleClient == null) {
+      _log('❌ 错误：请先连接蓝牙设备');
+      return;
+    }
+
+    final filename = _bleEyeController.text.trim();
+    if (filename.isEmpty) {
+      _log('❌ 错误：请先在“3. 蓝牙直连切换表情”中输入有效的表情文件名！');
+      return;
+    }
+
+    _log('🧪 [BLE压力测试] 启动固件“蓝牙刷新显示”三次断链漏洞检测...');
+    _log('🚀 开始连续 3 轮蓝牙刷新表情循环测试，每轮间隔 2.5 秒...');
+
+    bool testPassed = true;
+    int failedRound = 0;
+    String failureReason = '';
+
+    for (int i = 1; i <= 3; i++) {
+      _log('========================================');
+      _log('🧪 [BLE 第 $i / 3 轮] 开始测试');
+      _log('========================================');
+
+      // 1. 发送切换指令
+      _log('第 $i 轮 -> 正在发送蓝牙刷新指令 ($filename)...');
+      final applySw = Stopwatch()..start();
+      try {
+        final response = await _bleClient!.sendCommand({
+          'action': 'APPLY_EYES',
+          'left': filename,
+        }, timeoutSec: 8);
+        applySw.stop();
+        _log('第 $i 轮 -> ✅ 蓝牙刷新指令响应: $response (耗时: ${applySw.elapsedMilliseconds} ms)');
+      } catch (e) {
+        testPassed = false;
+        failedRound = i;
+        failureReason = '第 $i 轮蓝牙刷新指令发送失败: $e';
+        _log('❌ $failureReason');
+        break;
+      }
+
+      // 2. 稳定等待
+      _log('第 $i 轮 -> 正在等待 2.5 秒以确保固件蓝牙传输和刷新渲染完成...');
+      await Future.delayed(const Duration(milliseconds: 2500));
+
+      // 3. 连通性测试 (Ping)
+      _log('第 $i 轮 -> 正在通过蓝牙发送 Ping 探测设备连通性...');
+      final pingSw = Stopwatch()..start();
+      try {
+        final response = await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
+        pingSw.stop();
+        if (response['status'] == 'success') {
+          _log('第 $i 轮 -> ✅ 蓝牙连通性正常！往返时延 RTT: ${pingSw.elapsedMilliseconds} ms');
+        } else {
+          testPassed = false;
+          failedRound = i;
+          failureReason = '第 $i 轮蓝牙 Ping 失败，返回状态异常: $response';
+          _log('❌ $failureReason');
+          break;
+        }
+      } catch (e) {
+        testPassed = false;
+        failedRound = i;
+        failureReason = '第 $i 轮蓝牙 Ping 探测发生异常 (设备疑似已断线): $e';
+        _log('❌ $failureReason');
+        break;
+      }
+    }
+
+    _log('========================================');
+    if (testPassed) {
+      _log('🎉🎉🎉 [测试完成] 蓝牙 3 轮连续表情刷新压力测试顺利通过！');
+      _log('✅ 结论: 蓝牙通道完好，未检测到刷新显示导致的断链问题！');
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 28),
+              SizedBox(width: 10),
+              Text('🎉 BLE 测试完美通过！'),
+            ],
+          ),
+          content: const Text(
+            '在连续 3 轮蓝牙表情切换与 Ping 探测中，ESP32-C3 蓝牙连接稳定，GATT 通道数据交互极其顺畅，未见任何断链或无响应异常！\n\n'
+            '结论：蓝牙直连模式未检测到该漏洞。',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _log('🚨🚨🚨 [测试失败] 蓝牙压力测试异常中断！');
+      _log('❌ 失败原因: $failureReason');
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error, color: Colors.red, size: 28),
+              SizedBox(width: 10),
+              Text('❌ BLE 测试未通过！'),
+            ],
+          ),
+          content: Text(
+            '蓝牙压力测试在第 $failedRound 轮中途崩溃或发生断链：\n\n'
+            '具体表现：$failureReason\n\n'
+            '建议：排查 C3 蓝牙协议栈堆栈（Stack）是否过浅，或连续操作引发的 Heap 内存碎片化溢出。',
+            style: const TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('去排查'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -490,6 +625,16 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _runTripleBleApplyTest,
+                            icon: const Icon(Icons.bug_report, color: Colors.white),
+                            label: const Text('执行 3次 连续刷新测试 (蓝牙漏洞检测)', style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.pink[800]),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         const Text('4. 蓝牙高阶控制功能 (与 LAN 对称)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),

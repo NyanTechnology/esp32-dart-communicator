@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:esp32_comm/esp32_comm.dart';
@@ -28,6 +29,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
   final _rightFilenameController = TextEditingController(text: 'test_anim.gif');
   bool _leftMirror = false;
   bool _rightMirror = false;
+  bool _autoApplyAfterUpload = true; // 上传成功后自动应用到双眼显示
 
   // Console Logs
   final List<String> _logs = [];
@@ -39,6 +41,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
   }
 
   void _log(String msg) {
+    // 同时也输出到 IDE (如 VS Code) 的调试控制台
+    debugPrint('📱 [LAN] $msg');
     if (!mounted) return;
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
@@ -134,6 +138,14 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
         if (success) {
           _log('🎉 上传成功！固件已将数据安全写入 /spiffs/images/$filename');
+          setState(() {
+            _leftFilenameController.text = filename;
+            _rightFilenameController.text = filename;
+          });
+          if (_autoApplyAfterUpload) {
+            _log('🔄 检测到“自动应用”已开启，正在向 C3 发送画面切换指令...');
+            _applyEyes();
+          }
         } else {
           _log('❌ 上传失败。可能由于 C3 闪存空间不足或网络中断。');
         }
@@ -349,6 +361,280 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     }
   }
 
+  void _runTripleUploadAndApplyTest() async {
+    if (_selectedBaseUrl == null) {
+      _log('❌ 错误：请先连接一个局域网设备');
+      return;
+    }
+
+    _log('🧪 [压力测试] 启动固件“上传+显示”三次断链漏洞检测...');
+    _log('步骤 1: 正在打开系统文件选择器，请选择用于测试的图片/GIF文件...');
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+
+      if (result == null || result.files.single.bytes == null) {
+        _log('⚠️ 测试取消：未选择任何文件。');
+        return;
+      }
+
+      final fileBytes = result.files.single.bytes!;
+      final filename = result.files.single.name;
+
+      _log('📂 已选择测试文件: $filename | 大小: ${fileBytes.length} 字节');
+      _log('🚀 开始连续 3 轮“上传并显示”循环测试，每轮间隔 2.5 秒...');
+
+      bool testPassed = true;
+      int failedRound = 0;
+      String failureReason = '';
+
+      for (int i = 1; i <= 3; i++) {
+        _log('========================================');
+        _log('🧪 [第 $i / 3 轮] 开始测试');
+        _log('========================================');
+
+        // 1. 上传文件
+        _log('第 $i 轮 -> 正在上传文件至 C3 (SPIFFS)...');
+        final uploadSw = Stopwatch()..start();
+        final uploadSuccess = await _httpClient.uploadEyeData(
+          _selectedBaseUrl!,
+          Uint8List.fromList(fileBytes),
+          filename,
+        );
+        uploadSw.stop();
+
+        if (!uploadSuccess) {
+          testPassed = false;
+          failedRound = i;
+          failureReason = '第 $i 轮文件上传失败 (HTTP 错误或超时)';
+          _log('❌ $failureReason');
+          break;
+        }
+        _log('第 $i 轮 -> ✅ 文件上传成功！耗时: ${uploadSw.elapsedMilliseconds} ms');
+
+        // 2. 应用显示
+        _log('第 $i 轮 -> 正在发送应用显示指令...');
+        final applySw = Stopwatch()..start();
+        final applySuccess = await _httpClient.applyEyeConfigs(
+          _selectedBaseUrl!,
+          filename,
+          filename,
+          leftMirror: _leftMirror,
+          rightMirror: _rightMirror,
+        );
+        applySw.stop();
+
+        if (!applySuccess) {
+          testPassed = false;
+          failedRound = i;
+          failureReason = '第 $i 轮应用显示指令执行失败';
+          _log('❌ $failureReason');
+          break;
+        }
+        _log('第 $i 轮 -> ✅ 应用指令执行成功！耗时: ${applySw.elapsedMilliseconds} ms');
+
+        // 3. 稳定等待
+        _log('第 $i 轮 -> 正在等待 2.5 秒以确保固件完成文件解压、渲染和画面切换...');
+        await Future.delayed(const Duration(milliseconds: 2500));
+
+        // 4. 连通性测试 (Ping)
+        _log('第 $i 轮 -> 正在测试设备连通性 (Ping)...');
+        final pingSw = Stopwatch()..start();
+        final rtt = await _httpClient.pingDevice(_selectedBaseUrl!);
+        pingSw.stop();
+
+        if (rtt == null) {
+          testPassed = false;
+          failedRound = i;
+          failureReason = '第 $i 轮连通性测试 (Ping) 失败，设备已断线/无响应！';
+          _log('❌ $failureReason');
+          break;
+        }
+        _log('第 $i 轮 -> ✅ 连通性正常！往返时延 RTT: $rtt ms');
+      }
+
+      _log('========================================');
+      if (testPassed) {
+        _log('🎉🎉🎉 [测试完成] 连续 3 轮“上传并显示”压力测试顺利通过！');
+        _log('✅ 结论: 当前固件已成功解决“上传显示图像三次后导致设备断链”的问题！');
+        
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                SizedBox(width: 10),
+                Text('🎉 测试完美通过！'),
+              ],
+            ),
+            content: const Text(
+              '在连续 3 轮高强度的“文件上传 -> 刷新显示 -> 网络探测”测试中，ESP32-C3 设备稳定运行，未出现任何崩溃、断链或无响应现象！\n\n'
+              '结论：您的固件已成功解决“上传显示图像3次后断线”的核心 Bug！',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        _log('🚨🚨🚨 [测试失败] 压力测试异常中断！');
+        _log('❌ 失败原因: $failureReason');
+        _log('💡 结论: 固件仍存在断链或崩溃问题，请检查固件端的 SPIFFS 写冲突、网络协议栈或内存泄漏（Out of Memory）！');
+
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 28),
+                SizedBox(width: 10),
+                Text('❌ 测试未通过！'),
+              ],
+            ),
+            content: Text(
+              '压力测试在第 $failedRound 轮检测到异常中断：\n\n'
+              '具体表现为：$failureReason\n\n'
+              '结论：固件“上传并显示 3 次后导致断链”的问题可能仍未完全解决。请结合 C3 串口日志（Serial Monitor）排查内存溢出或 SPIFFS 文件系统写保护问题。',
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('去排查'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      _log('💥 测试运行异常: $e');
+    }
+  }
+
+  Future<Uint8List?> _convertImageToRgb565(Uint8List originalBytes) async {
+    try {
+      _log('🎨 [转换引擎] 正在解码并重采样图像为 160x160...');
+      
+      // 使用 Flutter built-in dart:ui 解码并重采样到 160x160
+      final codec = await ui.instantiateImageCodec(
+        originalBytes,
+        targetWidth: 160,
+        targetHeight: 160,
+        allowUpscaling: true,
+      );
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+      
+      _log('🎨 [转换引擎] 获取原始 RGBA8888 像素数据...');
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (byteData == null) {
+        _log('❌ [转换引擎] 错误: 无法提取像素数据');
+        return null;
+      }
+      
+      final rgbaBytes = byteData.buffer.asUint8List();
+      final rgb565Bytes = Uint8List(160 * 160 * 2); // 恰好 51200 字节
+      
+      _log('🎨 [转换引擎] 正在将 RGBA8888 转换为 RGB565 Big Endian Byte Array...');
+      int offset = 0;
+      for (int i = 0; i < rgbaBytes.length; i += 4) {
+        final r = rgbaBytes[i];
+        final g = rgbaBytes[i + 1];
+        final b = rgbaBytes[i + 2];
+        // Alpha 通道忽略，直接对 RGB 进行 16位 RGB565 重构
+        final r5 = (r >> 3) & 0x1F;
+        final g6 = (g >> 2) & 0x3F;
+        final b5 = (b >> 3) & 0x1F;
+        final rgb565 = (r5 << 11) | (g6 << 5) | b5;
+        
+        // 存储为 Big Endian（大端序：高8位在前，低8位在后）
+        rgb565Bytes[offset++] = (rgb565 >> 8) & 0xFF;
+        rgb565Bytes[offset++] = rgb565 & 0xFF;
+      }
+      
+      _log('🎨 [转换引擎] 转换完成！输出大小: ${rgb565Bytes.length} 字节 (.eye 格式标准大小)');
+      return rgb565Bytes;
+    } catch (e) {
+      _log('❌ [转换引擎] 转换异常: $e');
+      return null;
+    }
+  }
+
+  void _pickConvertAndUploadImage() async {
+    if (_selectedBaseUrl == null) {
+      _log('❌ 错误：请先连接局域网设备');
+      return;
+    }
+
+    _log('📂 [图片转换上传] 正在打开文件选择器选择 PNG/JPG/WEBP 等图片...');
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image, // 限制只能选择图片格式
+        withData: true,
+      );
+
+      if (result == null || result.files.single.bytes == null) {
+        _log('⚠️ 操作取消：未选择任何图片文件。');
+        return;
+      }
+
+      final originalBytes = result.files.single.bytes!;
+      final originalName = result.files.single.name;
+      _log('📂 已选择源图片: $originalName | 大小: ${originalBytes.length} 字节');
+
+      // 提取纯文件名（去掉后缀），重构为 .eye 文件
+      String targetFilename = originalName;
+      final dotIndex = originalName.lastIndexOf('.');
+      if (dotIndex != -1) {
+        targetFilename = '${originalName.substring(0, dotIndex)}.eye';
+      } else {
+        targetFilename = '$originalName.eye';
+      }
+
+      // 执行转换
+      final convertedBytes = await _convertImageToRgb565(originalBytes);
+      if (convertedBytes == null) {
+        _log('❌ 格式转换失败，中止上传。');
+        return;
+      }
+
+      _log('🚀 正在将已转换的 $targetFilename 字节数据流式上传至 C3 (SPIFFS)...');
+      final success = await _httpClient.uploadEyeData(
+        _selectedBaseUrl!,
+        convertedBytes,
+        targetFilename,
+      );
+
+      if (success) {
+        _log('🎉 格式转换并上传成功！目标文件已安全写入 /spiffs/images/$targetFilename');
+        setState(() {
+          _leftFilenameController.text = targetFilename;
+          _rightFilenameController.text = targetFilename;
+        });
+        if (_autoApplyAfterUpload) {
+          _log('🔄 检测到“自动应用”已开启，正在向 C3 发送画面切换指令...');
+          _applyEyes();
+        }
+      } else {
+        _log('❌ 上传已转换的文件失败。可能由于 C3 闪存空间不足或网络中断。');
+      }
+    } catch (e) {
+      _log('💥 图片转换及上传异常: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -531,14 +817,44 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       // 1. HTTP 动图上传区域
                       const Text('1. 上传眼部图像/GIF 动画 (.eye / .gif)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent)),
                       const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _pickAndUploadFile,
-                          icon: const Icon(Icons.file_upload),
-                          label: const Text('选择本地文件并上传至 C3 (SPIFFS)'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal[800]),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _pickAndUploadFile,
+                              icon: const Icon(Icons.file_upload),
+                              label: const Text('直接上传 .eye/.gif'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal[800],
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _pickConvertAndUploadImage,
+                              icon: const Icon(Icons.transform, color: Colors.amberAccent),
+                              label: const Text('转换并上传 PNG/JPG', style: TextStyle(color: Colors.amberAccent)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.cyan[900],
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      CheckboxListTile(
+                        title: const Text('上传成功后自动设为眼部输出并刷新显示', style: TextStyle(fontSize: 12, color: Colors.tealAccent)),
+                        value: _autoApplyAfterUpload,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          setState(() {
+                            _autoApplyAfterUpload = val ?? false;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
                       ),
                       const SizedBox(height: 16),
 
@@ -602,6 +918,20 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                         ),
                       ),
                       const Divider(height: 24),
+
+                      // 3. 固件断链漏洞测试 (上传并显示3次)
+                      const Text('3. 固件断链漏洞检测 (连续3次上传并显示)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.pinkAccent)),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _runTripleUploadAndApplyTest,
+                          icon: const Icon(Icons.bug_report, color: Colors.white),
+                          label: const Text('执行 3次 连续上传与应用测试', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.pink[800]),
+                        ),
+                      ),
+                      const Divider(height: 24),
                       
                       // 用户与云端绑定配对
                       const Text('用户与云端绑定配对', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
@@ -635,8 +965,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       ),
                       const Divider(height: 24),
                       
-                      // 3. 系统维护与模式重置
-                      const Text('3. 系统维护与模式重置', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                      // 4. 系统维护与模式重置
+                      const Text('4. 系统维护与模式重置', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
                       const SizedBox(height: 8),
                       Row(
                         children: [

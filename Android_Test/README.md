@@ -1,17 +1,94 @@
-# nyaneyes_tester
+# NyanEye SDK 极简测试器 (NyanEye SDK Tester)
 
-A new Flutter project.
+一个专为 **NyanEyes ESP32-C3** 智能硬件设计的双通道（蓝牙 BLE + 局域网 Wi-Fi HTTP）高集成度端对端开发调试工具。
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 📖 项目简介
 
-A few resources to get you started if this is your first Flutter project:
+`nyaneyes_tester` 是一个基于 Flutter 构建的极简高性能调试客户端。它与底层的 `esp32_comm` SDK 深度绑定，旨在为 NyanEye 固件开发者提供极速配网、状态监视、文件传输、配置刷新，以及针对固件稳定性漏洞的自动化压力测试服务。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🌟 核心功能板块
+
+### 1. 🔵 蓝牙调试器 (BLE Controller)
+*   **设备扫描**：基于 `flutter_blue_plus` 并发搜寻附近在线的 `NyanEyes` 或 `ESP32` 设备。
+*   **双模式连接**：支持配网模式（FFF0 服务）与户外直连控制模式（FFE0 服务）。
+*   **安全鉴权 (AUTH)**：支持本地安全密钥握手鉴权，打通高安全控制通道。
+*   **对称控制**：支持手机端同步 C3 硬件时钟（RTC）、高频心跳探测（Ping）、读取今日累计亮屏时长、远程控制屏幕进入节能待机（Sleep）。
+*   **表情刷新**：通过 BLE 快速发送表情刷新切换指令。
+
+### 2. 🟢 局域网调试器 (LAN Controller)
+*   **双路并发发现**：集成 mDNS（Multicast DNS）与 UDP Port 8888 广播并发扫描，自动捕获同网段下的在线 C3 模块。
+*   **手动 IP 直连**：针对多播被拦截的复杂网络环境，提供**手动直连 IP 握手通道**，规避广播屏蔽，100% 连通设备。
+*   **高维度看板**：实时读取并动态渲染设备电量、充电状态、节电模式开启状态、今日累计亮屏时间等。
+*   **云端绑定**：通过 POST 请求一键向 C3 写入 User ID 及绑定 Token，激活后台云端上报（`cloud_binding_task`）。
+*   **恢复出厂设置**：一键执行远程软复位，抹除所有本地 Wi-Fi 配置，使板子安全重启并退回到配网广播状态。
+
+---
+
+## ✨ 近期重大版本升级特性
+
+### 🧪 ① 固件断链稳定性压力测试 (Stability Stress Test)
+针对固件在“连续上传和显示图像 3 次后容易断开连接/内存溢出/崩溃”的典型漏洞，深度整合了自动化测试工具：
+*   **局域网 3x “上传 + 显示” 连续测试**：
+    *   用户只需选择一次测试图片，App 将自动循环执行 3 轮 **「分包上传 -> 切换显示 -> 稳定等待 -> 连通性 HTTP Ping 探测」** 完整流水线。
+    *   在任意步骤检测到设备断线或无响应将立即终止，并附带针对 SPIFFS 读写、内存泄漏（Heap OOM）或网络协议栈崩溃的专业排查指引。
+*   **蓝牙 3x 连续刷新测试**：
+    *   全自动循环执行 3 轮 **「GATT 切换显示 -> 稳定等待 -> 蓝牙 Ping 握手」**，精准评估高频 GATT 交互下的固件蓝牙协议栈稳定性。
+
+### 🎨 ② 智能本地图像转换引擎 (PNG/JPG to RGB565 Converter)
+ESP32-C3 的 RAM 非常有限，不适合集成复杂的 JPEG/PNG 软件解码器。为此本 App 实现了**手机端硬件加速图像转换引擎**：
+*   **无损重采样**：基于 `dart:ui` 原生解码，利用 GPU/CPU 硬件加速将任意 PNG/JPG/WEBP 等图片无损缩放、重采样至标准的 **160 × 160 分辨率**。
+*   **RGB565 裸流重构**：在 Dart 层以大端序（Big Endian）高保真压缩转换为 16 位无压缩 RGB565 字节数组，恰好生成 **51,200 字节（50KB）** 的标准 `.eye` 文件（每两字节直接喂给屏幕 DMA），杜绝屏幕“彩色雪花/花屏”。
+*   **上传即刷屏 (Auto-Apply)**：配套 **「上传成功后自动设为眼部输出并刷新显示」** 极速调试开关，实现“选图 - 转换 - 传输 - 刷屏”一步到位的丝滑开发体验。
+
+### 🖥️ ③ 实时 VS Code 调试日志重定向 (Debug Console Mirroring)
+*   为了解决开发者必须时刻紧盯手机屏幕看运行日志的痛点，集成了 `debugPrint` 镜像流。
+*   手机界面上原始日志面板中滚动的每一条高价值通信包、异常报错、测试进度等日志，都会实时重定向到您电脑端的 VS Code / IDE 调试控制台，并带有 `📱 [LAN]` 与 `📱 [BLE]` 前缀标识，让日志排查更轻松！
+
+### ⚡ ④ 现代化构建依赖升级 (Build System Upgrades)
+*   **Gradle Wrapper** 升级至：`8.14.0`
+*   **Android Gradle Plugin (AGP)** 升级至：`8.11.1`
+*   **Kotlin (KGP)** 升级至：`2.2.20`
+*   彻底消灭了旧版 Gradle/Kotlin 在 Flutter 编译时产生的整页黄色过期警告，保证构建顺畅。
+
+---
+
+## 🚀 快速上手
+
+### 1. 准备工作
+确保您的电脑已配置好 Flutter 与 Android SDK 环境。
+
+```bash
+# 克隆或进入项目目录
+cd Android_Test
+
+# 解决工作区 package 引用丢失（清除 VS Code 红色报错）
+flutter pub get
+cd ../ && flutter pub get && cd example && flutter pub get
+```
+
+### 2. 编译并运行
+在 VS Code 中按下 `F5`，或在命令行中运行：
+
+```bash
+flutter run
+```
+
+---
+
+## 🎯 局域网扫描不到板子的终极排查指南
+
+由于部分路由器和手机操作系统对多播（Multicast）与广播限制极严，若遇到扫描局域网搜不到板子的情况，请依次排查：
+
+1.  **极速破局：使用手动直连**
+    *   板子每次连接 Wi-Fi 成功都会在串口打印局域网 IP（波特率 `115200`，如 `192.168.123.13`）。
+    *   直接在 App 顶部的 **「手动直连 IP」** 输入框中输入板子 IP 并点击 **「直连」**，即可跳过扫描强制进入控制台。
+2.  **检查手机的 VPN/代理软件**：Clash、小火箭、AdGuard 等软件会把 mDNS 包路由到虚拟网卡，请在扫描前**必须彻底关闭**它们。
+3.  **检查手机与板子的网段**：确保手机与板子连接在同一路由器的相同频段下（网段需完全一致，例如均处于 `192.168.123.X`）。
+4.  **配置路由器多播策略**：Linksys 等品牌路由器需登录后台：
+    *   **关闭**「过滤多播 (Filter Multicast)」。
+    *   **开启**「IGMP 监听 (IGMP Snooping)」。
+    *   **关闭**「AP 隔离 (AP Isolation)」。

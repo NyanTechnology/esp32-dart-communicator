@@ -96,5 +96,33 @@ void main() {
       expect(deviceInfo.staConnected, false);
       expect(deviceInfo.isManager, false);
     });
+
+    test('fromJson should parse mac address', () {
+      final json = {
+        'mode': 'AP',
+        'mac': '00:11:22:33:44:55',
+      };
+
+      final deviceInfo = DeviceInfo.fromJson(json);
+      expect(deviceInfo.mac, '00:11:22:33:44:55');
+    });
+
+    test('copyWith should override specific fields', () {
+      final deviceInfo = DeviceInfo(
+        firmware: '1.0.0',
+        mode: 'AP',
+        apSsid: 'ESP32',
+        apIp: '192.168.4.1',
+        apClients: 0,
+        staConnected: false,
+        isManager: false,
+        mac: '00:11:22:33:44:55',
+      );
+
+      final updated = deviceInfo.copyWith(mac: '66:77:88:99:aa:bb', mode: 'STA');
+      expect(updated.mac, '66:77:88:99:aa:bb');
+      expect(updated.mode, 'STA');
+      expect(updated.firmware, '1.0.0');
+    });
   });
 }

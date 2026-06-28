@@ -15,6 +15,7 @@ class DeviceInfo {
     this.managerUrl,
     this.batteryLevel,
     this.powerSavingMode,
+    this.mac,
   });
 
   final String firmware;
@@ -32,6 +33,45 @@ class DeviceInfo {
   final bool isManager;
   final int? batteryLevel;
   final bool? powerSavingMode;
+  final String? mac;
+
+  DeviceInfo copyWith({
+    String? firmware,
+    String? mode,
+    String? apSsid,
+    String? apIp,
+    int? apClients,
+    String? staSsid,
+    bool? staConnected,
+    String? staIp,
+    String? mdnsHost,
+    String? mdnsUrl,
+    String? managerHost,
+    String? managerUrl,
+    bool? isManager,
+    int? batteryLevel,
+    bool? powerSavingMode,
+    String? mac,
+  }) {
+    return DeviceInfo(
+      firmware: firmware ?? this.firmware,
+      mode: mode ?? this.mode,
+      apSsid: apSsid ?? this.apSsid,
+      apIp: apIp ?? this.apIp,
+      apClients: apClients ?? this.apClients,
+      staSsid: staSsid ?? this.staSsid,
+      staConnected: staConnected ?? this.staConnected,
+      staIp: staIp ?? this.staIp,
+      mdnsHost: mdnsHost ?? this.mdnsHost,
+      mdnsUrl: mdnsUrl ?? this.mdnsUrl,
+      managerHost: managerHost ?? this.managerHost,
+      managerUrl: managerUrl ?? this.managerUrl,
+      isManager: isManager ?? this.isManager,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
+      powerSavingMode: powerSavingMode ?? this.powerSavingMode,
+      mac: mac ?? this.mac,
+    );
+  }
 
   factory DeviceInfo.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic value) {
@@ -56,6 +96,7 @@ class DeviceInfo {
       isManager: (json['isManager'] ?? json['is_manager']) == true,
       batteryLevel: json['battery_level'] != null ? parseInt(json['battery_level']) : null,
       powerSavingMode: json['power_saving_mode'] as bool?,
+      mac: (json['mac'] ?? json['mac_address']) as String?,
     );
   }
 }

@@ -32,6 +32,7 @@ class DeviceDiscoveryService {
     Duration timeout = const Duration(seconds: 3),
   }) async {
     final discoveredUrls = <String>{};
+    final discoveredMacs = <String, String>{};
 
     Future<void> runMDNS() async {
       try {
@@ -45,7 +46,18 @@ class DeviceDiscoveryService {
               final port = resolvedService.port;
               if (host != null) {
                 final displayHost = host.contains(':') ? '[$host]' : host;
-                discoveredUrls.add('http://$displayHost:$port');
+                final baseUrl = 'http://$displayHost:$port';
+                discoveredUrls.add(baseUrl);
+
+                final txtRecords = resolvedService.txt;
+                if (txtRecords != null) {
+                  final macBytes = txtRecords['mac'];
+                  if (macBytes != null) {
+                    try {
+                      discoveredMacs[baseUrl] = utf8.decode(macBytes);
+                    } catch (_) {}
+                  }
+                }
               }
             } catch (_) {
               if (kDebugMode) { debugPrint('mDNS resolve failed'); }
@@ -93,8 +105,13 @@ class DeviceDiscoveryService {
                   final info = jsonDecode(jsonStr);
                   final ip = info['ip'];
                   final port = info['http_port'] ?? 80;
+                  final mac = info['mac'] as String?;
                   if (ip != null) {
-                    discoveredUrls.add('http://$ip:$port');
+                    final baseUrl = 'http://$ip:$port';
+                    discoveredUrls.add(baseUrl);
+                    if (mac != null) {
+                      discoveredMacs[baseUrl] = mac;
+                    }
                   }
                 } catch (_) {}
               }
@@ -138,9 +155,34 @@ class DeviceDiscoveryService {
 
     final discoveredDevices = <DeviceInfo>[];
     for (final baseUrl in discoveredUrls) {
-      final info = await _httpClient.fetchDeviceInfo(baseUrl, timeout: timeout);
+      var info = await _httpClient.fetchDeviceInfo(baseUrl, timeout: timeout);
       if (info != null) {
+        final mac = discoveredMacs[baseUrl];
+        if (mac != null && (info.mac == null || info.mac!.isEmpty)) {
+          info = info.copyWith(mac: mac);
+        }
         discoveredDevices.add(info);
+      } else {
+        // Fallback: If HTTP check fails/times out, construct a skeleton DeviceInfo
+        // from resolved mDNS or received UDP broadcast to ensure the device's dynamic IP is still updated.
+        final mac = discoveredMacs[baseUrl];
+        if (mac != null) {
+          final uri = Uri.parse(baseUrl);
+          final ip = uri.host;
+          discoveredDevices.add(DeviceInfo(
+            firmware: 'Unknown',
+            mode: 'STA',
+            apSsid: '',
+            apIp: '',
+            apClients: 0,
+            staConnected: true,
+            isManager: false,
+            staIp: ip,
+            mac: mac,
+            mdnsHost: uri.host.endsWith('.local') ? uri.host : null,
+            mdnsUrl: baseUrl,
+          ));
+        }
       }
     }
     return discoveredDevices;

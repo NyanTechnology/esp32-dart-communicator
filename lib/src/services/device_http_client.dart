@@ -75,7 +75,6 @@ class DeviceHttpClient {
     try {
       final req = http.MultipartRequest('POST', uploadUri);
       req.headers['Connection'] = 'close';
-      req.contentLength = data.length; // Explicitly set contentLength to avoid 411 Length Required chunked transfer
       req.files.add(http.MultipartFile.fromBytes('file', data, filename: filename));
       final response = await _client.send(req).timeout(const Duration(seconds: 60));
       _log('💡', 'DeviceHttpClient', 'uploadEyeData SUCCESS: statusCode: ${response.statusCode}');

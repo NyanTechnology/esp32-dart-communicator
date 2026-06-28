@@ -114,13 +114,21 @@ class DeviceHttpClient {
     bool rightMirror = false,
   }) async {
     final applyUri = Uri.parse(
-      '$baseUrl/api/eyes/apply?left=/images/$leftFilename&right=/images/$rightFilename&leftMirror=$leftMirror&rightMirror=$rightMirror',
+      '$baseUrl/api/eyes/apply?left=$leftFilename&right=$rightFilename&leftMirror=$leftMirror&rightMirror=$rightMirror',
     );
     _log('🐛', 'DeviceHttpClient', 'applyEyeConfigs INITIATED: $applyUri');
     try {
       final resp = await _withClient((client) => client.get(applyUri, headers: {'Connection': 'close'}).timeout(const Duration(seconds: 30)));
       _log('💡', 'DeviceHttpClient', 'applyEyeConfigs SUCCESS: statusCode: ${resp.statusCode}, body: ${resp.body}');
-      return resp.statusCode == 200;
+      if (resp.statusCode == 200) {
+        try {
+          final data = json.decode(resp.body) as Map<String, dynamic>;
+          return data['status'] == 'success';
+        } catch (_) {
+          return true; // Fallback for backward compatibility if body is not JSON or lacks status
+        }
+      }
+      return false;
     } catch (e, stack) {
       _log('⛔', 'DeviceHttpClient', 'applyEyeConfigs EXCEPTION', e, stack);
       return false;

@@ -77,10 +77,10 @@ void main() {
 
     test('applyEyeConfigs constructs correct URL and returns true on 200', () async {
       final mockClient = MockClient((request) async {
-        expect(request.url.queryParameters['left'], '/images/L.bin');
-        expect(request.url.queryParameters['right'], '/images/R.bin');
+        expect(request.url.queryParameters['left'], 'L.bin');
+        expect(request.url.queryParameters['right'], 'R.bin');
         expect(request.url.queryParameters['leftMirror'], 'true');
-        return http.Response('', 200);
+        return http.Response(json.encode({'status': 'success'}), 200);
       });
 
       final client = DeviceHttpClient(client: mockClient);

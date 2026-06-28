@@ -7,8 +7,26 @@ import '../models/device_info.dart';
 /// Client for communicating with ESP32 devices via HTTP REST API.
 class DeviceHttpClient {
   final http.Client _client;
+  final bool _isCustomClient;
 
-  DeviceHttpClient({http.Client? client}) : _client = client ?? http.Client();
+  DeviceHttpClient({http.Client? client})
+      : _client = client ?? http.Client(),
+        _isCustomClient = client != null;
+
+  /// Helper to execute an HTTP request with a dedicated client,
+  /// closing it immediately in a finally block to avoid TCP connection leaks
+  /// and prevent ESP32 TCP socket exhaustion.
+  Future<T> _withClient<T>(Future<T> Function(http.Client client) action) async {
+    if (_isCustomClient) {
+      return await action(_client);
+    }
+    final client = http.Client();
+    try {
+      return await action(client);
+    } finally {
+      client.close();
+    }
+  }
 
   // Helper method to format debugging output to conform exactly to the main App's framed, emoji-based logger style.
   void _log(String emoji, String tag, String msg, [dynamic error, StackTrace? stack]) {
@@ -41,13 +59,13 @@ class DeviceHttpClient {
     final devInfoUri = Uri.parse('$baseUrl/api/device_info');
     _log('🐛', 'DeviceHttpClient', 'fetchDeviceInfo INITIATED: $devInfoUri');
     try {
-      final resp = await _client.get(
+      final resp = await _withClient((client) => client.get(
         devInfoUri,
         headers: {'Connection': 'close'},
       ).timeout(
         timeout,
         onTimeout: () => http.Response('', 408),
-      );
+      ));
       _log('💡', 'DeviceHttpClient', 'fetchDeviceInfo RESPONDED: statusCode: ${resp.statusCode}, body: ${resp.body}');
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
@@ -76,7 +94,7 @@ class DeviceHttpClient {
       final req = http.MultipartRequest('POST', uploadUri);
       req.headers['Connection'] = 'close';
       req.files.add(http.MultipartFile.fromBytes('file', data, filename: filename));
-      final response = await _client.send(req).timeout(const Duration(seconds: 60));
+      final response = await _withClient((client) => client.send(req).timeout(const Duration(seconds: 60)));
       _log('💡', 'DeviceHttpClient', 'uploadEyeData SUCCESS: statusCode: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e, stack) {
@@ -100,7 +118,7 @@ class DeviceHttpClient {
     );
     _log('🐛', 'DeviceHttpClient', 'applyEyeConfigs INITIATED: $applyUri');
     try {
-      final resp = await _client.get(applyUri, headers: {'Connection': 'close'}).timeout(const Duration(seconds: 30));
+      final resp = await _withClient((client) => client.get(applyUri, headers: {'Connection': 'close'}).timeout(const Duration(seconds: 30)));
       _log('💡', 'DeviceHttpClient', 'applyEyeConfigs SUCCESS: statusCode: ${resp.statusCode}, body: ${resp.body}');
       return resp.statusCode == 200;
     } catch (e, stack) {
@@ -117,7 +135,7 @@ class DeviceHttpClient {
     final resetUri = Uri.parse('$baseUrl/api/reset');
     _log('🐛', 'DeviceHttpClient', 'resetDevice INITIATED: $resetUri');
     try {
-      final resp = await _client.get(resetUri, headers: {'Connection': 'close'}).timeout(timeout);
+      final resp = await _withClient((client) => client.get(resetUri, headers: {'Connection': 'close'}).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'resetDevice SUCCESS: statusCode: ${resp.statusCode}, body: ${resp.body}');
       return resp.statusCode == 200;
     } catch (e, stack) {
@@ -136,7 +154,7 @@ class DeviceHttpClient {
     final batteryUri = Uri.parse('$baseUrl/api/battery');
     _log('🐛', 'DeviceHttpClient', 'fetchBatteryLevel INITIATED: $batteryUri');
     try {
-      final resp = await _client.get(batteryUri, headers: {'Connection': 'close'}).timeout(timeout);
+      final resp = await _withClient((client) => client.get(batteryUri, headers: {'Connection': 'close'}).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'fetchBatteryLevel RESPONDED: statusCode: ${resp.statusCode}, body: ${resp.body}');
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
@@ -161,7 +179,7 @@ class DeviceHttpClient {
     _log('🐛', 'DeviceHttpClient', 'pingDevice INITIATED: $pingUri');
     final stopwatch = Stopwatch()..start();
     try {
-      final resp = await _client.get(pingUri, headers: {'Connection': 'close'}).timeout(timeout);
+      final resp = await _withClient((client) => client.get(pingUri, headers: {'Connection': 'close'}).timeout(timeout));
       stopwatch.stop();
       _log('💡', 'DeviceHttpClient', 'pingDevice RESPONDED: statusCode: ${resp.statusCode}, latency: ${stopwatch.elapsedMilliseconds}ms, body: ${resp.body}');
       if (resp.statusCode == 200) {
@@ -188,14 +206,14 @@ class DeviceHttpClient {
     final bindUri = Uri.parse('$baseUrl/api/user/bind');
     _log('🐛', 'DeviceHttpClient', 'bindUser INITIATED: $bindUri');
     try {
-      final resp = await _client.post(
+      final resp = await _withClient((client) => client.post(
         bindUri,
         headers: {'Content-Type': 'application/json', 'Connection': 'close'},
         body: json.encode({
           'user_id': userId,
           'bind_token': bindToken,
         }),
-      ).timeout(timeout);
+      ).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'bindUser SUCCESS: statusCode: ${resp.statusCode}, body: ${resp.body}');
       return resp.statusCode == 200;
     } catch (e, stack) {
@@ -215,7 +233,7 @@ class DeviceHttpClient {
     final sleepUri = Uri.parse('$baseUrl/api/power/sleep');
     _log('🐛', 'DeviceHttpClient', 'enterSleepMode INITIATED: $sleepUri');
     try {
-      final resp = await _client.post(
+      final resp = await _withClient((client) => client.post(
         sleepUri,
         headers: {'Content-Type': 'application/json', 'Connection': 'close'},
         body: json.encode({
@@ -223,7 +241,7 @@ class DeviceHttpClient {
           'sleep_seconds': sleepSeconds,
           'disable_backlight': true,
         }),
-      ).timeout(timeout);
+      ).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'enterSleepMode SUCCESS: statusCode: ${resp.statusCode}, body: ${resp.body}');
       return resp.statusCode == 200;
     } catch (e, stack) {
@@ -232,7 +250,7 @@ class DeviceHttpClient {
     }
   }
 
-  /// Fetches the daily accumulated screen active duration (in seconds) from the device via HTTP.
+  /// Preserves the daily accumulated screen active duration (in seconds) from the device via HTTP.
   /// 
   /// Returns the duration in seconds if successful, otherwise null.
   Future<int?> fetchDisplayDuration(
@@ -242,7 +260,7 @@ class DeviceHttpClient {
     final durationUri = Uri.parse('$baseUrl/api/display/duration');
     _log('🐛', 'DeviceHttpClient', 'fetchDisplayDuration INITIATED: $durationUri');
     try {
-      final resp = await _client.get(durationUri, headers: {'Connection': 'close'}).timeout(timeout);
+      final resp = await _withClient((client) => client.get(durationUri, headers: {'Connection': 'close'}).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'fetchDisplayDuration RESPONDED: statusCode: ${resp.statusCode}, body: ${resp.body}');
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as Map<String, dynamic>;
@@ -270,14 +288,14 @@ class DeviceHttpClient {
       final timestampSeconds = now.millisecondsSinceEpoch ~/ 1000;
       final timezoneOffsetHours = now.timeZoneOffset.inHours;
 
-      final resp = await _client.post(
+      final resp = await _withClient((client) => client.post(
         syncUri,
         headers: {'Content-Type': 'application/json', 'Connection': 'close'},
         body: json.encode({
           'timestamp': timestampSeconds,
           'timezone_offset_hours': timezoneOffsetHours,
         }),
-      ).timeout(timeout);
+      ).timeout(timeout));
       _log('💡', 'DeviceHttpClient', 'syncDeviceTime RESPONDED: statusCode: ${resp.statusCode}, body: ${resp.body}');
 
       if (resp.statusCode == 200) {

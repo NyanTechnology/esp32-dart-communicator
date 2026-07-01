@@ -94,6 +94,22 @@ void main() {
       expect(success, isTrue);
     });
 
+    test('applyEyeConfigs sets lastErrorMessage on error with file_not_found', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(json.encode({'status': 'error', 'message': 'file_not_found'}), 200);
+      });
+
+      final client = DeviceHttpClient(client: mockClient);
+      final success = await client.applyEyeConfigs(
+        'http://192.168.4.1',
+        'L.bin',
+        'R.bin',
+      );
+
+      expect(success, isFalse);
+      expect(client.lastErrorMessage, equals('file_not_found'));
+    });
+
     test('returns null/false on error', () async {
       final mockClient = MockClient((request) async {
         return http.Response('Error', 500);

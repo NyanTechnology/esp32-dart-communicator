@@ -8,6 +8,9 @@ import '../models/device_info.dart';
 class DeviceHttpClient {
   final http.Client _client;
   final bool _isCustomClient;
+  String? _lastErrorMessage;
+
+  String? get lastErrorMessage => _lastErrorMessage;
 
   DeviceHttpClient({http.Client? client})
       : _client = client ?? http.Client(),
@@ -113,6 +116,7 @@ class DeviceHttpClient {
     bool leftMirror = false,
     bool rightMirror = false,
   }) async {
+    _lastErrorMessage = null;
     final applyUri = Uri.parse(
       '$baseUrl/api/eyes/apply?left=$leftFilename&right=$rightFilename&leftMirror=$leftMirror&rightMirror=$rightMirror',
     );
@@ -123,7 +127,12 @@ class DeviceHttpClient {
       if (resp.statusCode == 200) {
         try {
           final data = json.decode(resp.body) as Map<String, dynamic>;
-          return data['status'] == 'success';
+          if (data['status'] == 'success') {
+            return true;
+          } else {
+            _lastErrorMessage = data['message']?.toString();
+            return false;
+          }
         } catch (_) {
           return true; // Fallback for backward compatibility if body is not JSON or lacks status
         }

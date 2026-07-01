@@ -63,9 +63,12 @@ class DeviceBleClient {
   /// Sends a JSON-encoded command to the device and waits for a response.
   /// 
   /// The device must be [init]ialized before calling this.
-  Future<Map<String, dynamic>> sendCommand(Map<String, dynamic> payload, {int timeoutSec = 15}) async {
+  Future<Map<String, dynamic>> sendCommand(
+    Map<String, dynamic> payload, {
+    int timeoutSec = 15,
+    bool waitResponse = true,
+  }) async {
     if (_controlChar == null) throw Exception('BleClient not initialized');
-    _responseCompleter = Completer<Map<String, dynamic>>();
     
     final jsonStr = '${jsonEncode(payload)}\n';
     bool withoutResp = _controlChar!.properties.writeWithoutResponse;
@@ -77,12 +80,18 @@ class DeviceBleClient {
       } catch (_) {}
     }
     
-    await _controlChar!.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
-    
-    try {
-      return await _responseCompleter!.future.timeout(Duration(seconds: timeoutSec));
-    } finally {
-      _responseCompleter = null;
+    if (waitResponse) {
+      _responseCompleter = Completer<Map<String, dynamic>>();
+      await _controlChar!.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
+      try {
+        return await _responseCompleter!.future.timeout(Duration(seconds: timeoutSec));
+      } finally {
+        _responseCompleter = null;
+      }
+    } else {
+      // 💡 [无回复高速写入]：动态使用 characteristic 自身的 properties.writeWithoutResponse 决定写入模式，防范 iOS 因特性越界强行断链
+      await _controlChar!.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
+      return const <String, dynamic>{};
     }
   }
 

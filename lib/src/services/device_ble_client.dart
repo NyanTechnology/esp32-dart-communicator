@@ -40,34 +40,42 @@ class DeviceBleClient {
     await _outdoorNotifySub?.cancel();
     await _batteryNotifySub?.cancel();
     
+    print('[DeviceBleClient] Discovering services for ${device.remoteId} ...');
     final services = await device.discoverServices().timeout(const Duration(seconds: 10));
+    print('[DeviceBleClient] Discovered ${services.length} services.');
 
     for (final s in services) {
       final sUuid = s.uuid.toString().toLowerCase();
-      // Handle standard 16-bit UUID representations in flutter_blue_plus
-      if (sUuid.contains(provServiceUuid) || sUuid == '0000$provServiceUuid-0000-1000-8000-00805f9b34fb') {
+      print('  -> Service: $sUuid');
+      // Handle standard 16-bit UUID representations in flutter_blue_plus and fallback to Legacy UUIDs
+      if (sUuid.contains(provServiceUuid) || sUuid == '0000$provServiceUuid-0000-1000-8000-00805f9b34fb' || sUuid == '4fafc201-1fb5-459e-8bcc-c5c9c331914b') {
         for (final c in s.characteristics) {
           final cUuid = c.uuid.toString().toLowerCase();
-          if (cUuid.contains(provCharUuid) || cUuid == '0000$provCharUuid-0000-1000-8000-00805f9b34fb') {
+          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
+          if (cUuid.contains(provCharUuid) || cUuid == '0000$provCharUuid-0000-1000-8000-00805f9b34fb' || cUuid == 'beb5483e-36e1-4688-b7f5-ea07361b26a8') {
             _provChar = c;
           }
         }
-      } else if (sUuid.contains(outdoorServiceUuid) || sUuid == '0000$outdoorServiceUuid-0000-1000-8000-00805f9b34fb') {
+      } else if (sUuid.contains(outdoorServiceUuid) || sUuid == '0000$outdoorServiceUuid-0000-1000-8000-00805f9b34fb' || sUuid == '4fafc201-1fb5-459e-8bcc-c5c9c331914b') {
         for (final c in s.characteristics) {
           final cUuid = c.uuid.toString().toLowerCase();
-          if (cUuid.contains(outdoorCharUuid) || cUuid == '0000$outdoorCharUuid-0000-1000-8000-00805f9b34fb') {
+          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
+          if (cUuid.contains(outdoorCharUuid) || cUuid == '0000$outdoorCharUuid-0000-1000-8000-00805f9b34fb' || cUuid == 'beb5483e-36e1-4688-b7f5-ea07361b26a8') {
             _outdoorChar = c;
           }
         }
       } else if (sUuid.contains(batteryServiceUuid) || sUuid == '0000$batteryServiceUuid-0000-1000-8000-00805f9b34fb') {
         for (final c in s.characteristics) {
           final cUuid = c.uuid.toString().toLowerCase();
+          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
           if (cUuid.contains(batteryCharUuid) || cUuid == '0000$batteryCharUuid-0000-1000-8000-00805f9b34fb') {
             _batteryChar = c;
           }
         }
       }
     }
+
+    print('[DeviceBleClient] Target Chars - Prov: ${_provChar != null}, Outdoor: ${_outdoorChar != null}, Battery: ${_batteryChar != null}');
 
     if (_provChar == null && _outdoorChar == null) {
       throw Exception('Could not find any NyanEyes BLE services');

@@ -17,13 +17,13 @@ class DeviceDiscoveryService {
 
   /// Creates a new [DeviceDiscoveryService].
   /// 
-  /// [mDnsServiceName] is the service type to search for (default: _http._tcp).
+  /// [mDnsServiceName] is the service type to search for (default: _nyaneyes._tcp).
   /// [mDnsSearchString] is a substring to match in the discovered service name.
   /// [udpRequestString] is the payload for UDP broadcast discovery.
   DeviceDiscoveryService({
     DeviceHttpClient? httpClient,
-    this.mDnsServiceName = '_http._tcp',
-    this.mDnsSearchString = 'nyaneye',
+    this.mDnsServiceName = '_nyaneyes._tcp',
+    this.mDnsSearchString = '',
     this.udpRequestString = 'DISCOVER_ESP32_REQ',
   }) : _httpClient = httpClient ?? DeviceHttpClient();
 

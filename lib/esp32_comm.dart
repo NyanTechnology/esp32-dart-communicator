@@ -9,3 +9,4 @@ export 'src/models/nyan_eyes_protocol.dart';
 export 'src/services/device_discovery_service.dart';
 export 'src/services/device_http_client.dart';
 export 'src/services/device_ble_client.dart';
+export 'src/services/device_tcp_client.dart';

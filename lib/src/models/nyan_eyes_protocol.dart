@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
+import 'package:convert/convert.dart';
 
 /// NyanEyes 蓝牙通信协议常量及负载构造器 (零信任双轨版)
 class NyanEyesProtocol {
@@ -27,9 +28,13 @@ class NyanEyesProtocol {
 
   /// 使用本地保存的该设备 local_key 对 nonce 计算 HMAC-SHA256
   static String calculateAuthHash(String nonce, String localKey) {
-    var hmacSha256 = Hmac(sha256, utf8.encode(localKey));
-    var digest = hmacSha256.convert(utf8.encode(nonce));
-    return digest.toString(); // 返回 16 进制小写字符串
+    final keyBytes = utf8.encode(localKey);
+    final nonceBytes = utf8.encode(nonce);
+    
+    final hmac = Hmac(sha256, keyBytes);
+    final digest = hmac.convert(nonceBytes);
+    
+    return hex.encode(digest.bytes).toLowerCase(); 
   }
 
   /// 构造获取挑战码负载
@@ -53,8 +58,11 @@ class NyanEyesProtocol {
     return '{"action":"AUTH","hash":"$hash"}';
   }
 
-  /// 构造户外切换 Wi-Fi 负载
-  static String switchWiFi(String ssid, String password) {
+  /// 构造户外切换 Wi-Fi / 居家模式绑定负载 (Step 2)
+  static String switchWiFi(String ssid, String password, {String? bindToken}) {
+    if (bindToken != null && bindToken.isNotEmpty) {
+      return '{"action":"SWITCH_WIFI","ssid":"$ssid","password":"$password","bind_token":"$bindToken"}';
+    }
     return '{"action":"SWITCH_WIFI","ssid":"$ssid","password":"$password"}';
   }
 

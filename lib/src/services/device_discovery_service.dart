@@ -145,13 +145,13 @@ class DeviceDiscoveryService {
       }
     }
 
-    await Future.wait([runMDNS(), runUDP()]).timeout(
-      timeout + const Duration(seconds: 1),
-      onTimeout: () {
-        if (kDebugMode) { debugPrint('Discovery timeout'); }
-        return <void>[];
-      },
-    );
+    try {
+      await Future.wait([runMDNS(), runUDP()]).timeout(
+        timeout + const Duration(seconds: 1),
+      );
+    } catch (_) {
+      if (kDebugMode) { debugPrint('Discovery partial timeout (proceeding with found devices)'); }
+    }
 
     final discoveredDevices = <DeviceInfo>[];
     for (final baseUrl in discoveredUrls) {

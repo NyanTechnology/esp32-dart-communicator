@@ -104,7 +104,7 @@ class DeviceDiscoveryService {
                   final jsonStr = utf8.decode(dg.data);
                   final info = jsonDecode(jsonStr);
                   final ip = info['ip'];
-                  final port = info['http_port'] ?? 80;
+                  final port = info['http_port'] ?? info['tcp_port'] ?? 80;
                   final mac = info['mac'] as String?;
                   if (ip != null) {
                     final baseUrl = 'http://$ip:$port';
@@ -155,6 +155,28 @@ class DeviceDiscoveryService {
 
     final discoveredDevices = <DeviceInfo>[];
     for (final baseUrl in discoveredUrls) {
+      // 💡 [v3.0 零信任优化]：如果已经拿到了 MAC 地址 (从 UDP 广播或 mDNS TXT 中极速解析出)，
+      // 就可以直接创建基础 DeviceInfo 返回，完全绕过冗余、缓慢且在 v3.0 下必然失败的 HTTP 请求。
+      final mac = discoveredMacs[baseUrl];
+      if (mac != null) {
+        final uri = Uri.parse(baseUrl);
+        final ip = uri.host;
+        discoveredDevices.add(DeviceInfo(
+          firmware: 'Unknown',
+          mode: 'STA',
+          apSsid: '',
+          apIp: '',
+          apClients: 0,
+          staConnected: true,
+          isManager: false,
+          staIp: ip,
+          mac: mac,
+          mdnsHost: uri.host.endsWith('.local') ? uri.host : null,
+          mdnsUrl: baseUrl,
+        ));
+        continue; // 成功绕过 3 秒的 HTTP 连接超时！
+      }
+
       var info = await _httpClient.fetchDeviceInfo(baseUrl, timeout: timeout);
       if (info != null) {
         final mac = discoveredMacs[baseUrl];

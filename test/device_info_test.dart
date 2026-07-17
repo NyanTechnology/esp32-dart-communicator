@@ -124,5 +124,44 @@ void main() {
       expect(updated.mode, 'STA');
       expect(updated.firmware, '1.0.0');
     });
+
+    test('fromJson should parse sys_mode for all three mode values', () {
+      for (final mode in ['HOME', 'OUTDOOR', 'UNCONFIGURED']) {
+        final deviceInfo = DeviceInfo.fromJson({
+          'mode': 'STA',
+          'sys_mode': mode,
+        });
+        expect(deviceInfo.sysMode, mode);
+      }
+    });
+
+    test('fromJson should leave sysMode null when old firmware omits sys_mode', () {
+      final deviceInfo = DeviceInfo.fromJson({
+        'firmware': '2.0.0',
+        'mode': 'STA',
+        'staSsid': 'MyHomeWifi',
+      });
+      expect(deviceInfo.sysMode, isNull);
+      expect(deviceInfo.staSsid, 'MyHomeWifi');
+    });
+
+    test('copyWith should override and preserve sysMode', () {
+      final deviceInfo = DeviceInfo(
+        firmware: '3.0.0',
+        mode: 'STA',
+        apSsid: '',
+        apIp: '0.0.0.0',
+        apClients: 0,
+        staConnected: false,
+        isManager: false,
+        sysMode: 'OUTDOOR',
+      );
+
+      final switched = deviceInfo.copyWith(sysMode: 'HOME');
+      expect(switched.sysMode, 'HOME');
+
+      final untouched = deviceInfo.copyWith(mode: 'AP');
+      expect(untouched.sysMode, 'OUTDOOR');
+    });
   });
 }

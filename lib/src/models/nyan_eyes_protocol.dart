@@ -58,6 +58,16 @@ class NyanEyesProtocol {
     return '{"action":"AUTH","hash":"$hash"}';
   }
 
+  /// 构造居家/户外模式切换负载 (SET_MODE)
+  ///
+  /// [mode] 仅支持 "HOME" / "OUTDOOR"（大小写不敏感，发送前统一转为大写）。
+  /// SET_MODE HOME 要求设备曾成功并网（NVS 存有 Wi-Fi 凭据），可免密码切回居家模式。
+  static String setMode(String mode) {
+    final normalized = mode.toUpperCase();
+    assert(normalized == 'HOME' || normalized == 'OUTDOOR', 'mode must be HOME or OUTDOOR');
+    return '{"action":"SET_MODE","mode":"$normalized"}';
+  }
+
   /// 构造户外切换 Wi-Fi / 居家模式绑定负载 (Step 2)
   static String switchWiFi(String ssid, String password, {String? bindToken}) {
     if (bindToken != null && bindToken.isNotEmpty) {

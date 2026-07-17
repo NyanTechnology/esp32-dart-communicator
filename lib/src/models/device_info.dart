@@ -16,6 +16,7 @@ class DeviceInfo {
     this.batteryLevel,
     this.powerSavingMode,
     this.mac,
+    this.sysMode,
   });
 
   final String firmware;
@@ -35,6 +36,10 @@ class DeviceInfo {
   final bool? powerSavingMode;
   final String? mac;
 
+  /// 设备端上报的系统运行模式："HOME" / "OUTDOOR" / "UNCONFIGURED"。
+  /// 旧固件 GET_INFO 不含 sys_mode 字段时为 null（空值兼容）。
+  final String? sysMode;
+
   DeviceInfo copyWith({
     String? firmware,
     String? mode,
@@ -52,6 +57,7 @@ class DeviceInfo {
     int? batteryLevel,
     bool? powerSavingMode,
     String? mac,
+    String? sysMode,
   }) {
     return DeviceInfo(
       firmware: firmware ?? this.firmware,
@@ -70,6 +76,7 @@ class DeviceInfo {
       batteryLevel: batteryLevel ?? this.batteryLevel,
       powerSavingMode: powerSavingMode ?? this.powerSavingMode,
       mac: mac ?? this.mac,
+      sysMode: sysMode ?? this.sysMode,
     );
   }
 
@@ -97,6 +104,7 @@ class DeviceInfo {
       batteryLevel: json['battery_level'] != null ? parseInt(json['battery_level']) : null,
       powerSavingMode: json['power_saving_mode'] as bool?,
       mac: (json['mac'] ?? json['mac_address']) as String?,
+      sysMode: (json['sys_mode'] ?? json['sysMode'])?.toString(),
     );
   }
 }

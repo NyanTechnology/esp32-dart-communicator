@@ -5,142 +5,130 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 /// Client for communicating with ESP32 devices via Bluetooth Low Energy (BLE).
 /// 
-/// Automatically routes commands to either the Provisioning service or the Outdoor/Control service based on the action.
+/// Supports smart auto-detection of services (provisioning, outdoor direct control, 
+/// standard battery service, and backward compatibility with old custom service UUIDs).
 class DeviceBleClient {
-  static const String provServiceUuid = 'fff0';
-  static const String provCharUuid = 'fff1';
-
-  static const String outdoorServiceUuid = 'ffe0';
-  static const String outdoorCharUuid = 'ffe1';
-
-  static const String batteryServiceUuid = '180f';
-  static const String batteryCharUuid = '2a19';
+  /// The legacy default service UUID for NyanEye control.
+  static const String defaultServiceUuid = '4fafc201-1fb5-459e-8bcc-c5c9c331914b';
+  
+  /// The legacy default characteristic UUID for control commands and notifications.
+  static const String defaultCharUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
   final BluetoothDevice device;
+  final String serviceUuid;
+  final String charUuid;
   
-  BluetoothCharacteristic? _provChar;
-  BluetoothCharacteristic? _outdoorChar;
-  BluetoothCharacteristic? _batteryChar;
-  
-  StreamSubscription? _provNotifySub;
-  StreamSubscription? _outdoorNotifySub;
-  StreamSubscription? _batteryNotifySub;
-  
+  BluetoothCharacteristic? _controlChar;
+  StreamSubscription? _notifySub;
   Completer<Map<String, dynamic>>? _responseCompleter;
 
   /// Creates a new [DeviceBleClient] for the given [device].
-  DeviceBleClient(this.device);
+  DeviceBleClient(
+    this.device, {
+    this.serviceUuid = defaultServiceUuid,
+    this.charUuid = defaultCharUuid,
+  });
 
-  /// Returns the battery level stream if available, otherwise null.
-  Stream<int>? get batteryLevelStream => _batteryChar?.onValueReceived.map((val) => val.isNotEmpty ? val[0] : 0);
+  /// Normalizes and compares BLE UUIDs to support short 16-bit and full 128-bit forms.
+  bool _uuidMatches(String uuidStr, String targetShort, String targetLong) {
+    final normalized = uuidStr.toLowerCase().replaceAll('-', '');
+    final shortNorm = targetShort.toLowerCase().replaceAll('-', '');
+    final longNorm = targetLong.toLowerCase().replaceAll('-', '');
+    
+    return normalized == shortNorm || 
+           normalized == longNorm ||
+           (normalized.contains(shortNorm) && 
+            (normalized.endsWith('00805f9b34fb') || normalized.startsWith('0000' + shortNorm)));
+  }
 
   /// Initializes the client by discovering services and enabling notifications.
   Future<void> init() async {
-    await _provNotifySub?.cancel();
-    await _outdoorNotifySub?.cancel();
-    await _batteryNotifySub?.cancel();
-    
-    print('[DeviceBleClient] Discovering services for ${device.remoteId} ...');
+    await _notifySub?.cancel();
     final services = await device.discoverServices().timeout(const Duration(seconds: 10));
-    print('[DeviceBleClient] Discovered ${services.length} services.');
 
+    BluetoothService? matchedService;
+    BluetoothCharacteristic? matchedChar;
+
+    // 1. Attempt to detect new standard services first (provisioning or outdoor control)
     for (final s in services) {
-      final sUuid = s.uuid.toString().toLowerCase();
-      print('  -> Service: $sUuid');
-      // Handle standard 16-bit UUID representations in flutter_blue_plus and fallback to Legacy UUIDs
-      if (sUuid.contains(provServiceUuid) || sUuid == '0000$provServiceUuid-0000-1000-8000-00805f9b34fb' || sUuid == '4fafc201-1fb5-459e-8bcc-c5c9c331914b') {
+      final sUuid = s.uuid.toString();
+      
+      // Check for FFF0 (Provisioning Service)
+      if (_uuidMatches(sUuid, 'fff0', '0000fff0-0000-1000-8000-00805f9b34fb')) {
         for (final c in s.characteristics) {
-          final cUuid = c.uuid.toString().toLowerCase();
-          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
-          if (cUuid.contains(provCharUuid) || cUuid == '0000$provCharUuid-0000-1000-8000-00805f9b34fb' || cUuid == 'beb5483e-36e1-4688-b7f5-ea07361b26a8') {
-            _provChar = c;
-          }
-        }
-      } else if (sUuid.contains(outdoorServiceUuid) || sUuid == '0000$outdoorServiceUuid-0000-1000-8000-00805f9b34fb' || sUuid == '4fafc201-1fb5-459e-8bcc-c5c9c331914b') {
-        for (final c in s.characteristics) {
-          final cUuid = c.uuid.toString().toLowerCase();
-          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
-          if (cUuid.contains(outdoorCharUuid) || cUuid == '0000$outdoorCharUuid-0000-1000-8000-00805f9b34fb' || cUuid == 'beb5483e-36e1-4688-b7f5-ea07361b26a8') {
-            _outdoorChar = c;
-          }
-        }
-      } else if (sUuid.contains(batteryServiceUuid) || sUuid == '0000$batteryServiceUuid-0000-1000-8000-00805f9b34fb') {
-        for (final c in s.characteristics) {
-          final cUuid = c.uuid.toString().toLowerCase();
-          print('      -> Char: $cUuid (Notify: ${c.properties.notify}, Read: ${c.properties.read}, Write: ${c.properties.write})');
-          if (cUuid.contains(batteryCharUuid) || cUuid == '0000$batteryCharUuid-0000-1000-8000-00805f9b34fb') {
-            _batteryChar = c;
+          final cUuid = c.uuid.toString();
+          if (_uuidMatches(cUuid, 'fff1', '0000fff1-0000-1000-8000-00805f9b34fb')) {
+            matchedService = s;
+            matchedChar = c;
+            break;
           }
         }
       }
-    }
-
-    print('[DeviceBleClient] Target Chars - Prov: ${_provChar != null}, Outdoor: ${_outdoorChar != null}, Battery: ${_batteryChar != null}');
-
-    if (_provChar == null && _outdoorChar == null) {
-      throw Exception('Could not find any NyanEyes BLE services');
-    }
-
-    void handleNotify(List<int> value) {
-      try {
-        final jsonStr = utf8.decode(value);
-        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-        if (_responseCompleter != null && !_responseCompleter!.isCompleted) {
-          _responseCompleter!.complete(data);
+      // Check for FFE0 (Outdoor Control Service)
+      else if (_uuidMatches(sUuid, 'ffe0', '0000ffe0-0000-1000-8000-00805f9b34fb')) {
+        for (final c in s.characteristics) {
+          final cUuid = c.uuid.toString();
+          if (_uuidMatches(cUuid, 'ffe1', '0000ffe1-0000-1000-8000-00805f9b34fb')) {
+            matchedService = s;
+            matchedChar = c;
+            break;
+          }
         }
-      } catch (_) {}
+      }
+      
+      if (matchedChar != null) break;
     }
 
-    if (_provChar != null) {
-      await _provChar!.setNotifyValue(true).timeout(const Duration(seconds: 5));
-      _provNotifySub = _provChar!.onValueReceived.listen(handleNotify);
-    }
-    
-    if (_outdoorChar != null) {
-      await _outdoorChar!.setNotifyValue(true).timeout(const Duration(seconds: 5));
-      _outdoorNotifySub = _outdoorChar!.onValueReceived.listen(handleNotify);
-    }
-    
-    if (_batteryChar != null) {
-      if (_batteryChar!.properties.notify) {
-        await _batteryChar!.setNotifyValue(true).timeout(const Duration(seconds: 5));
+    // 2. If no new services matched, fallback to specified constructor/legacy parameters
+    if (matchedChar == null) {
+      for (final s in services) {
+        final sUuid = s.uuid.toString().toLowerCase();
+        if (sUuid == serviceUuid.toLowerCase() || _uuidMatches(sUuid, serviceUuid, serviceUuid)) {
+          for (final c in s.characteristics) {
+            final cUuid = c.uuid.toString().toLowerCase();
+            if (cUuid == charUuid.toLowerCase() || _uuidMatches(cUuid, charUuid, charUuid)) {
+              matchedService = s;
+              matchedChar = c;
+              break;
+            }
+          }
+        }
+        if (matchedChar != null) break;
       }
-      if (_batteryChar!.properties.read) {
+    }
+
+    _controlChar = matchedChar;
+
+    if (_controlChar != null) {
+      await _controlChar!.setNotifyValue(true).timeout(const Duration(seconds: 5));
+      _notifySub = _controlChar!.onValueReceived.listen((value) {
         try {
-          await _batteryChar!.read();
+          final jsonStr = utf8.decode(value);
+          final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+          if (_responseCompleter != null && !_responseCompleter!.isCompleted) {
+            _responseCompleter!.complete(data);
+          }
         } catch (_) {}
-      }
+      });
+    } else {
+      throw Exception(
+        'Could not find control service/characteristic (tried FFF0/FFF1, FFE0/FFE1, and legacy $serviceUuid/$charUuid)'
+      );
     }
   }
 
   /// Sends a JSON-encoded command to the device and waits for a response.
   /// 
   /// The device must be [init]ialized before calling this.
-  /// Routes 'PROVISION' and 'OUTDOOR_INIT' to the provisioning service,
-  /// and all other actions to the outdoor/control service.
   Future<Map<String, dynamic>> sendCommand(
     Map<String, dynamic> payload, {
     int timeoutSec = 15,
     bool waitResponse = true,
   }) async {
-    final action = payload['action'] as String?;
-    BluetoothCharacteristic? targetChar;
-    
-    if (action == 'PROVISION' || action == 'OUTDOOR_INIT') {
-      targetChar = _provChar;
-    } else {
-      targetChar = _outdoorChar;
-    }
-
-    if (targetChar == null) {
-      // Fallback if only one service is found, though protocol states both should be available
-      targetChar = _outdoorChar ?? _provChar;
-    }
-    
-    if (targetChar == null) throw Exception('Target BLE characteristic not found');
+    if (_controlChar == null) throw Exception('BleClient not initialized');
     
     final jsonStr = '${jsonEncode(payload)}\n';
-    bool withoutResp = targetChar.properties.writeWithoutResponse;
+    bool withoutResp = _controlChar!.properties.writeWithoutResponse;
     
     if (Platform.isAndroid) {
       try {
@@ -151,7 +139,7 @@ class DeviceBleClient {
     
     if (waitResponse) {
       _responseCompleter = Completer<Map<String, dynamic>>();
-      await targetChar.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
+      await _controlChar!.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
       try {
         return await _responseCompleter!.future.timeout(Duration(seconds: timeoutSec));
       } finally {
@@ -159,14 +147,58 @@ class DeviceBleClient {
       }
     } else {
       // 💡 [无回复高速写入]：动态使用 characteristic 自身的 properties.writeWithoutResponse 决定写入模式，防范 iOS 因特性越界强行断链
-      await targetChar.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
+      await _controlChar!.write(utf8.encode(jsonStr), withoutResponse: withoutResp).timeout(const Duration(seconds: 5));
       return const <String, dynamic>{};
     }
   }
 
+  /// Reads the battery level if the standard battery service is available on the device.
+  /// 
+  /// Returns a percentage value between 0 and 100, or null if not available or reading fails.
+  Future<int?> readBatteryLevel() async {
+    try {
+      final services = await device.discoverServices().timeout(const Duration(seconds: 5));
+      for (final s in services) {
+        final sUuid = s.uuid.toString();
+        if (_uuidMatches(sUuid, '180f', '0000180f-0000-1000-8000-00805f9b34fb')) {
+          for (final c in s.characteristics) {
+            final cUuid = c.uuid.toString();
+            if (_uuidMatches(cUuid, '2a19', '00002a19-0000-1000-8000-00805f9b34fb')) {
+              final value = await c.read().timeout(const Duration(seconds: 5));
+              if (value.isNotEmpty) {
+                return value[0];
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Subscribes to battery level changes.
+  /// 
+  /// Returns a stream of battery level percentages (0-100).
+  Stream<int> monitorBatteryLevel() async* {
+    try {
+      final services = await device.discoverServices();
+      for (final s in services) {
+        final sUuid = s.uuid.toString();
+        if (_uuidMatches(sUuid, '180f', '0000180f-0000-1000-8000-00805f9b34fb')) {
+          for (final c in s.characteristics) {
+            final cUuid = c.uuid.toString();
+            if (_uuidMatches(cUuid, '2a19', '00002a19-0000-1000-8000-00805f9b34fb')) {
+              await c.setNotifyValue(true);
+              yield* c.onValueReceived.map((value) => value.isNotEmpty ? value[0] : 0);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   /// Disposes of the client and cancels active subscriptions.
   void dispose() {
-    _provNotifySub?.cancel();
-    _outdoorNotifySub?.cancel();
+    _notifySub?.cancel();
   }
 }

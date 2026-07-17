@@ -130,12 +130,15 @@ class DeviceHttpClient {
           if (data['status'] == 'success') {
             return true;
           } else {
-            _lastErrorMessage = data['message']?.toString();
+            _lastErrorMessage = data['code']?.toString() ?? data['message']?.toString();
             return false;
           }
         } catch (_) {
           return true; // Fallback for backward compatibility if body is not JSON or lacks status
         }
+      } else if (resp.statusCode == 404) {
+        _lastErrorMessage = 'RESOURCE_NOT_FOUND';
+        return false;
       }
       return false;
     } catch (e, stack) {

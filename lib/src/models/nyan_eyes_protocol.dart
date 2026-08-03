@@ -68,6 +68,14 @@ class NyanEyesProtocol {
     return '{"action":"SET_MODE","mode":"$normalized"}';
   }
 
+  /// 构造省电模式双向控制负载。
+  ///
+  /// 开启后设备关闭背光、暂停 GIF，并启用 Wi-Fi 调制解调器省电；
+  /// 关闭后恢复正常显示。该状态不会跨设备重启保留。
+  static String setPowerSaving(bool enabled) {
+    return '{"action":"SET_POWER_SAVING","enabled":$enabled}';
+  }
+
   /// 构造户外切换 Wi-Fi / 居家模式绑定负载 (Step 2)
   static String switchWiFi(String ssid, String password, {String? bindToken}) {
     if (bindToken != null && bindToken.isNotEmpty) {

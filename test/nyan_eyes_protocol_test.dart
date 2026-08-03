@@ -36,4 +36,16 @@ void main() {
       expect(payload['bind_token'], 'token_abc');
     });
   });
+
+  group('NyanEyesProtocol.setPowerSaving', () {
+    test('should build enabled payload', () {
+      final payload = jsonDecode(NyanEyesProtocol.setPowerSaving(true)) as Map<String, dynamic>;
+      expect(payload, {'action': 'SET_POWER_SAVING', 'enabled': true});
+    });
+
+    test('should build disabled payload', () {
+      final payload = jsonDecode(NyanEyesProtocol.setPowerSaving(false)) as Map<String, dynamic>;
+      expect(payload, {'action': 'SET_POWER_SAVING', 'enabled': false});
+    });
+  });
 }

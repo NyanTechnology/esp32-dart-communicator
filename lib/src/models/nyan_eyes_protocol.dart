@@ -21,20 +21,24 @@ class NyanEyesProtocol {
 
   /// 生成一个符合规范的 16 字节随机安全 LocalKey（仅含英文字母、数字、下划线）
   static String generateSecureKey() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
     final rand = math.Random.secure();
-    return List.generate(16, (index) => chars[rand.nextInt(chars.length)]).join();
+    return List.generate(
+      16,
+      (index) => chars[rand.nextInt(chars.length)],
+    ).join();
   }
 
   /// 使用本地保存的该设备 local_key 对 nonce 计算 HMAC-SHA256
   static String calculateAuthHash(String nonce, String localKey) {
     final keyBytes = utf8.encode(localKey);
     final nonceBytes = utf8.encode(nonce);
-    
+
     final hmac = Hmac(sha256, keyBytes);
     final digest = hmac.convert(nonceBytes);
-    
-    return hex.encode(digest.bytes).toLowerCase(); 
+
+    return hex.encode(digest.bytes).toLowerCase();
   }
 
   /// 构造获取挑战码负载
@@ -58,13 +62,21 @@ class NyanEyesProtocol {
     return '{"action":"AUTH","hash":"$hash"}';
   }
 
+  /// Requests a nearby 2.4 GHz Wi-Fi scan from the device.
+  static String scanWiFi() {
+    return '{"action":"SCAN_WIFI"}';
+  }
+
   /// 构造居家/户外模式切换负载 (SET_MODE)
   ///
   /// [mode] 仅支持 "HOME" / "OUTDOOR"（大小写不敏感，发送前统一转为大写）。
   /// SET_MODE HOME 要求设备曾成功并网（NVS 存有 Wi-Fi 凭据），可免密码切回居家模式。
   static String setMode(String mode) {
     final normalized = mode.toUpperCase();
-    assert(normalized == 'HOME' || normalized == 'OUTDOOR', 'mode must be HOME or OUTDOOR');
+    assert(
+      normalized == 'HOME' || normalized == 'OUTDOOR',
+      'mode must be HOME or OUTDOOR',
+    );
     return '{"action":"SET_MODE","mode":"$normalized"}';
   }
 
@@ -84,13 +96,13 @@ class NyanEyesProtocol {
     return '{"action":"SWITCH_WIFI","ssid":"$ssid","password":"$password"}';
   }
 
-  /// 构造控制设备（继电器/LED）开关负载
-  static String toggleRelay(bool isOn) {
-    return '{"action":"TOGGLE_RELAY","state":${isOn ? 1 : 0}}';
-  }
-
   /// 构造控制双眼应用特定眼片文件（APPLY_EYES）负载
-  static String applyEyes(String left, String right, bool leftMirror, bool rightMirror) {
+  static String applyEyes(
+    String left,
+    String right,
+    bool leftMirror,
+    bool rightMirror,
+  ) {
     return '{"action":"APPLY_EYES","left":"$left","right":"$right","leftMirror":$leftMirror,"rightMirror":$rightMirror}';
   }
 }

@@ -4,13 +4,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:nsd/nsd.dart' as nsd;
 import '../models/device_info.dart';
-import 'device_http_client.dart';
 
 /// Service for discovering ESP32 devices on the local area network.
 /// 
 /// Utilizes both mDNS and UDP broadcast for robust discovery.
 class DeviceDiscoveryService {
-  final DeviceHttpClient _httpClient;
   final String mDnsServiceName;
   final String mDnsSearchString;
   final String udpRequestString;
@@ -21,11 +19,10 @@ class DeviceDiscoveryService {
   /// [mDnsSearchString] is a substring to match in the discovered service name.
   /// [udpRequestString] is the payload for UDP broadcast discovery.
   DeviceDiscoveryService({
-    DeviceHttpClient? httpClient,
     this.mDnsServiceName = '_nyaneyes._tcp',
     this.mDnsSearchString = '',
     this.udpRequestString = 'DISCOVER_ESP32_REQ',
-  }) : _httpClient = httpClient ?? DeviceHttpClient();
+  });
 
   // Helper method to format debugging output to conform exactly to the main App's framed, emoji-based logger style.
   void _log(String emoji, String tag, String msg, [dynamic error]) {

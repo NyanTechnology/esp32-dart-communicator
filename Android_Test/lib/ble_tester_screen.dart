@@ -29,7 +29,6 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
   final _tokenController = TextEditingController(text: 'token_xyz');
   final _localKeyController = TextEditingController(text: 'my_secure_key_321');
   final _bleEyeController = TextEditingController(text: 'test_anim.gif');
-  bool _relayState = false;
 
   // Console Logs
   final List<String> _logs = [];
@@ -62,7 +61,7 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 4),
       );
-      
+
       FlutterBluePlus.scanResults.listen((results) {
         if (!mounted) return;
         for (ScanResult r in results) {
@@ -100,8 +99,10 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     });
 
     try {
-      await device.connect(autoConnect: false, license: License.nonprofit).timeout(const Duration(seconds: 8));
-      
+      await device
+          .connect(autoConnect: false, license: License.nonprofit)
+          .timeout(const Duration(seconds: 8));
+
       final serviceUuid = isOutdoor ? _outdoorServiceUuid : _provServiceUuid;
       final charUuid = isOutdoor ? _outdoorCharUuid : _provCharUuid;
 
@@ -113,7 +114,7 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
 
       _log('正在读取 GATT 服务并订阅特征...');
       await _bleClient!.init();
-      
+
       if (!mounted) return;
       setState(() {
         _isConnected = true;
@@ -201,29 +202,6 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
       _log('鉴权结果 -> $response');
     } catch (e) {
       _log('鉴权超时或异常: $e');
-    }
-  }
-
-  void _sendToggleRelay() async {
-    if (_bleClient == null) return;
-    final newState = !_relayState;
-
-    final payload = {
-      'action': 'TOGGLE_RELAY',
-      'state': newState ? 1 : 0,
-    };
-
-    _log('发送开关继电器指令 -> 目标状态: ${newState ? "开" : "关"}');
-    try {
-      final response = await _bleClient!.sendCommand(payload, timeoutSec: 10);
-      _log('C3 响应 -> $response');
-      if (response['status'] == 'success') {
-        setState(() {
-          _relayState = newState;
-        });
-      }
-    } catch (e) {
-      _log('控制失败: $e');
     }
   }
 
@@ -531,7 +509,7 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                     children: [
                       Text('已连接: ${_selectedDevice!.platformName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurpleAccent)),
                       const Divider(),
-                      
+
                       // 1. WiFi 配网区域 (如果当前服务是 FFF0)
                       if (_bleClient!.serviceUuid.toLowerCase() == _provServiceUuid.toLowerCase()) ...[
                         const Text('Scenario 1: 配网与初始化', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
@@ -582,27 +560,13 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                           decoration: const InputDecoration(labelText: '安全密钥 (Local Key)', border: OutlineInputBorder()),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _sendAuth,
-                                icon: const Icon(Icons.security),
-                                label: const Text('安全鉴权 AUTH'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _sendToggleRelay,
-                                icon: Icon(_relayState ? Icons.lightbulb : Icons.lightbulb_outline),
-                                label: Text(_relayState ? '关闭指示灯' : '打开指示灯'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _relayState ? Colors.green : Colors.grey[700],
-                                ),
-                              ),
-                            ),
-                          ],
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _sendAuth,
+                            icon: const Icon(Icons.security),
+                            label: const Text('安全鉴权 AUTH'),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         const Text('3. 蓝牙直连切换表情', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),

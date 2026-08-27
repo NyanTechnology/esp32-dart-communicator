@@ -139,16 +139,6 @@ final response = await bleClient.sendCommand({
 // 成功回执: { "status": "success", "message": "user_binding_saved_and_uploading" }
 ```
 
-##### ⑧ 💡 指示灯物理外设开关 (TOGGLE_RELAY)
-控制开发板载 LED 指示灯或继电器的开关状态。
-```dart
-final response = await bleClient.sendCommand({
-  "action": "TOGGLE_RELAY",
-  "state": 1 // 1 为打开指示灯，0 为关闭
-});
-// 成功回执: { "status": "success", "message": "relay_toggled" }
-```
-
 ---
 
 ### 🟡 组件 B：`DeviceDiscoveryService`（局域网双轨设备搜索器）

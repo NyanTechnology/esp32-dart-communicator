@@ -43,10 +43,12 @@
 
 ### 2. 命令下发与 Notify 应答测试 (`DeviceBleClient.sendCommand()`)
 * **操作步骤**：
-  1. 在“配网与初始化”面板中，输入你家里的 **Wi-Fi SSID** 和 **Wi-Fi 密码**。
-  2. 点击 **“执行 WiFi 配网 (Reboot)”** 按钮。
+  1. 在“配网与初始化”面板中点击扫描，确认设备回传的列表只包含可连接的 **2.4GHz Wi-Fi**。
+  2. 从列表选择网络；加密网络输入对应密码，开放网络无需密码。
+  3. 点击 **“执行 WiFi 配网 (Reboot)”** 按钮。
 * **验证标准（原始日志面板 & 物理硬件）**：
-  * [x] 日志显示发送包：`发送内容: {"action":"PROVISION", "ssid": "...", "password": "..."}`。
+  * [x] 日志先显示 `SCAN_WIFI`，并依次接收 `wifi_scan_started`、`wifi_ap`、`wifi_scan_complete`。
+  * [x] 随后发送：`{"action":"SWITCH_WIFI", "ssid": "...", "password": "..."}`。
   * [x] 成功接收到来自 ESP32 回传的通知：`C3 固件端 Notify 响应 -> { ... }` 且 `status` 字段为成功。
   * [x] **物理观察**：ESP32-C3 板载指示灯/串口监视器发生变化，设备写入 NVS 并自动重启，尝试连接 Wi-Fi。
 * **SDK 验证点**：

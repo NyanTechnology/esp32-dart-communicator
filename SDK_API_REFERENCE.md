@@ -1,6 +1,6 @@
 # 😺 NyanEye SDK (`esp32_comm`) 双通道对称 API 开发者文档
 
-本设计与集成文档旨在帮助移动端开发人员（Flutter/Dart 开发者）快速上手使用 `esp32_comm` SDK，实现与 NyanEye ESP32-C3 物理设备进行低功耗蓝牙（BLE）与 Wi-Fi 局域网（HTTP）的双通道对称控制、高精度配网、安全鉴权、离线表情刷新、系统级一键待机休眠、高精度 RTC 时间对齐、累计亮屏工作时间获取及网络时延检测。
+本设计与集成文档旨在帮助移动端开发人员（Flutter/Dart 开发者）快速上手使用 `esp32_comm` SDK，实现与 NyanEye ESP32-C3 物理设备进行低功耗蓝牙（BLE）与 Wi-Fi 局域网（HTTP）的双通道控制、高精度配网、安全鉴权、离线表情刷新、RTC 时间对齐、累计亮屏工作时间获取及网络时延检测。
 
 ---
 
@@ -64,7 +64,7 @@ Future<Map<String, dynamic>> sendCommand(
 *   **功能**：向设备发送 JSON 命令包，SDK 自动完成 **GATT 分包传输及 Notify 异步 Completer 转 Future 转换**。
 *   **返回值**：设备 Notify 回传的统一 JSON 字典（含 `status` 状态和 `message` 内容）。
 
-#### 💡 4. 蓝牙控制特征全对称 8 大 API 指令载荷与调用示例：
+#### 💡 4. 蓝牙控制指令载荷与调用示例：
 
 负责 App 蓝牙模块的同事，可以直接复制以下载荷模板在业务层通过 `sendCommand` 极速调用：
 
@@ -78,8 +78,8 @@ final response = await bleClient.sendCommand({
 // 成功回执: { "status": "success", "message": "authenticated" }
 ```
 
-##### ② 🎨 表情包动画秒切刷新 (APPLY_EYES —— 🆕 支持休眠自动唤醒)
-App 在户外直接通过蓝牙让屏幕切换播放躺在 SPIFFS 中的动图文件。**注：若设备正处于休眠关屏状态，发送此蓝牙命令会自动瞬间拉起背光、自动唤醒设备，实现极客级即时眨眼！**
+##### ② 🎨 表情包动画秒切刷新 (APPLY_EYES)
+App 在户外直接通过蓝牙让屏幕切换播放存储在 SPIFFS 中的动图文件。
 ```dart
 final response = await bleClient.sendCommand({
   "action": "APPLY_EYES",
@@ -108,16 +108,7 @@ final response = await bleClient.sendCommand({
 // 成功回执: { "status": "success", "message": "3932" } （今日累计工作的秒数，APP 端可友好解算）
 ```
 
-##### ⑤ 😴 软熄屏超低功耗一键待机 (ENTER_SLEEP —— 🆕 对称功能)
-让设备瞬间熄屏、关停多线程 GIF 解码、并进入分时超低功耗慢待机广播。
-```dart
-final response = await bleClient.sendCommand({
-  "action": "ENTER_SLEEP"
-});
-// 成功回执: { "status": "success", "message": "entering_sleep_mode" }
-```
-
-##### ⑥ ⚡ 蓝牙往返 RTT 连通性心跳探测 (PING —— 🆕 对称功能)
+##### ⑤ ⚡ 蓝牙往返 RTT 连通性心跳探测 (PING —— 🆕 对称功能)
 App 通过蓝牙发送超轻量 PING 包，在业务层解算蓝牙链路往返时延（RTT）。
 ```dart
 final stopwatch = Stopwatch()..start();
@@ -129,7 +120,7 @@ print('蓝牙链路往返时延 RTT: ${stopwatch.elapsedMilliseconds} ms');
 // 成功回执: { "status": "success", "message": "pong" }
 ```
 
-##### ⑦ 🔗 用户云端配对与序列化绑定 (BIND_USER —— 🆕 对称功能)
+##### ⑥ 🔗 用户云端配对与序列化绑定 (BIND_USER —— 🆕 对称功能)
 直接将用户 ID 和云端 Token 通过蓝牙下发，固件写入 NVS 永久区，并激发 C3 在联网后自动向云端拉起 `cloud_binding_task`。
 ```dart
 final response = await bleClient.sendCommand({
@@ -137,16 +128,6 @@ final response = await bleClient.sendCommand({
   "bind_token": "token_abcdefg_9988"
 });
 // 成功回执: { "status": "success", "message": "user_binding_saved_and_uploading" }
-```
-
-##### ⑧ 💡 指示灯物理外设开关 (TOGGLE_RELAY)
-控制开发板载 LED 指示灯或继电器的开关状态。
-```dart
-final response = await bleClient.sendCommand({
-  "action": "TOGGLE_RELAY",
-  "state": 1 // 1 为打开指示灯，0 为关闭
-});
-// 成功回执: { "status": "success", "message": "relay_toggled" }
 ```
 
 ---
@@ -169,11 +150,11 @@ Future<List<DeviceInfo>> discoverEsp32DevicesOnLan({
 
 用于局域网内对设备执行状态监测、控制，以及高频大表情包资产（GIF）的上传传输。
 
-#### 1. `fetchDeviceInfo()` —— 获取整机信息状态 (含电量及节能)
+#### 1. `fetchDeviceInfo()` —— 获取整机信息状态
 ```dart
 Future<DeviceInfo?> fetchDeviceInfo(String baseUrl, {Duration timeout})
 ```
-*   **返回值**：`DeviceInfo`，包含了 `batteryLevel`（0-100% 实时电量）和 `powerSavingMode`（是否休眠待机标志）。
+*   **返回值**：`DeviceInfo`，包含设备版本、网络状态和可用的运行指标。
 
 #### 2. `uploadEyeData()` —— 流式分包上传动图大文件
 ```dart
@@ -181,7 +162,7 @@ Future<bool> uploadEyeData(String baseUrl, Uint8List data, String filename)
 ```
 *   **功能**：流式切片分包将手机端表情大文件传输写入 C3 的物理闪存。**（注：此项功能由于蓝牙速率瓶颈，必须在局域网 Wi-Fi 下通过本 API 进行！）**
 
-#### 3. `applyEyeConfigs()` —— 远程显示刷新（支持休眠自唤醒）
+#### 3. `applyEyeConfigs()` —— 远程显示刷新
 ```dart
 Future<bool> applyEyeConfigs(String baseUrl, String leftFilename, String rightFilename, {bool leftMirror, bool rightMirror})
 ```
@@ -202,17 +183,12 @@ Future<int?> pingDevice(String baseUrl, {Duration timeout})
 Future<bool> bindUser(String baseUrl, String userId, String bindToken, {Duration timeout})
 ```
 
-#### 7. `enterSleepMode()` —— 一键熄屏节能待机状态控制
-```dart
-Future<bool> enterSleepMode(String baseUrl, {int sleepSeconds, Duration timeout})
-```
-
-#### 8. `fetchDisplayDuration()` —— 今日累计亮屏显示时长获取
+#### 7. `fetchDisplayDuration()` —— 今日累计亮屏显示时长获取
 ```dart
 Future<int?> fetchDisplayDuration(String baseUrl, {Duration timeout})
 ```
 
-#### 9. `syncDeviceTime()` —— RTC 硬件时钟高精度同步
+#### 8. `syncDeviceTime()` —— RTC 硬件时钟高精度同步
 ```dart
 Future<String?> syncDeviceTime(String baseUrl, {Duration timeout})
 ```
@@ -235,6 +211,5 @@ class DeviceInfo {
   final String? mdnsHost;        // mDNS 广播主机名
   final bool isManager;          // 是否为群组主控制器
   final int? batteryLevel;       // 实时电池电量百分比 (0-100)
-  final bool? powerSavingMode;   // 休眠节电模式状态指示 (true 为处于熄屏待机)
 }
 ```

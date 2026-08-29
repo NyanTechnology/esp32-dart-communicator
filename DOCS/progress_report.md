@@ -32,7 +32,6 @@
 *   **通信方向**：双向 (`WRITE | NOTIFY`)
 *   **业务安全与控制**：
     *   **AUTH 安全握手鉴权**：手机下发 `{"action": "AUTH", "local_key": "..."}` $\rightarrow$ C3 匹配 NVS 中的 Key $\rightarrow$ 鉴权成功返回 `{"status": "success", "message": "authenticated"}`，允许后续控制；若匹配失败返回 `{"status": "error", "message": "auth_failed"}` 并延时断开 BLE。
-    *   **硬件继电器/指示灯控制**：手机下发 `{"action": "TOGGLE_RELAY", "state": 1|0}` $\rightarrow$ C3 控制指示灯点亮/熄灭 $\rightarrow$ 手机收到 Notify 应答 `{"status": "success", "message": "relay_toggled"}`。
     *   **在线 Wi-Fi 切换测试**：手机下发 `{"action": "SWITCH_WIFI", "ssid": "...", "password": "..."}` $\rightarrow$ C3 开启Fallback连网测试任务 $\rightarrow$ 手机收到 Notify 应答 `{"status": "success", "message": "switching_wifi"}`。
 
 ---

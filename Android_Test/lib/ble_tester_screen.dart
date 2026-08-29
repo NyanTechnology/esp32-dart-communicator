@@ -29,7 +29,6 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
   final _tokenController = TextEditingController(text: 'token_xyz');
   final _localKeyController = TextEditingController(text: 'my_secure_key_321');
   final _bleEyeController = TextEditingController(text: 'test_anim.gif');
-  bool _relayState = false;
 
   // Console Logs
   final List<String> _logs = [];
@@ -45,7 +44,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     debugPrint('📱 [BLE] $msg');
     if (!mounted) return;
     final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
     setState(() {
       _logs.insert(0, '[$timeStr] $msg');
     });
@@ -62,14 +62,15 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 4),
       );
-      
+
       FlutterBluePlus.scanResults.listen((results) {
         if (!mounted) return;
         for (ScanResult r in results) {
           // Filter by name or UUID
           final name = r.device.platformName;
           if (name.contains('NyanEyes') || name.contains('ESP32')) {
-            if (!_scanResults.any((element) => element.device.remoteId == r.device.remoteId)) {
+            if (!_scanResults.any(
+                (element) => element.device.remoteId == r.device.remoteId)) {
               setState(() {
                 _scanResults.add(r);
               });
@@ -100,8 +101,10 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     });
 
     try {
-      await device.connect(autoConnect: false, license: License.nonprofit).timeout(const Duration(seconds: 8));
-      
+      await device
+          .connect(autoConnect: false, license: License.nonprofit)
+          .timeout(const Duration(seconds: 8));
+
       final serviceUuid = isOutdoor ? _outdoorServiceUuid : _provServiceUuid;
       final charUuid = isOutdoor ? _outdoorCharUuid : _provCharUuid;
 
@@ -113,7 +116,7 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
 
       _log('正在读取 GATT 服务并订阅特征...');
       await _bleClient!.init();
-      
+
       if (!mounted) return;
       setState(() {
         _isConnected = true;
@@ -204,29 +207,6 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     }
   }
 
-  void _sendToggleRelay() async {
-    if (_bleClient == null) return;
-    final newState = !_relayState;
-
-    final payload = {
-      'action': 'TOGGLE_RELAY',
-      'state': newState ? 1 : 0,
-    };
-
-    _log('发送开关继电器指令 -> 目标状态: ${newState ? "开" : "关"}');
-    try {
-      final response = await _bleClient!.sendCommand(payload, timeoutSec: 10);
-      _log('C3 响应 -> $response');
-      if (response['status'] == 'success') {
-        setState(() {
-          _relayState = newState;
-        });
-      }
-    } catch (e) {
-      _log('控制失败: $e');
-    }
-  }
-
   void _sendBleApplyEyes() async {
     if (_bleClient == null) return;
     final filename = _bleEyeController.text.trim();
@@ -251,10 +231,12 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     _log('开始蓝牙高频心跳探测 (Ping) ...');
     final sw = Stopwatch()..start();
     try {
-      final response = await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
+      final response =
+          await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
       sw.stop();
       if (response['status'] == 'success') {
-        _log('🎉 蓝牙 Ping 成功！往返时延 RTT: ${sw.elapsedMilliseconds} ms | 状态: ${response['message']}');
+        _log(
+            '🎉 蓝牙 Ping 成功！往返时延 RTT: ${sw.elapsedMilliseconds} ms | 状态: ${response['message']}');
       } else {
         _log('❌ 蓝牙 Ping 失败: $response');
       }
@@ -289,35 +271,22 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
     if (_bleClient == null) return;
     _log('正在通过蓝牙抓取设备今日累计亮屏时长 ...');
     try {
-      final response = await _bleClient!.sendCommand({'action': 'GET_DURATION'}, timeoutSec: 5);
+      final response = await _bleClient!
+          .sendCommand({'action': 'GET_DURATION'}, timeoutSec: 5);
       if (response['status'] == 'success') {
         final secondsStr = response['message'] as String? ?? '0';
         final seconds = int.tryParse(secondsStr) ?? 0;
         final hours = seconds ~/ 3600;
         final minutes = (seconds % 3600) ~/ 60;
         final secs = seconds % 60;
-        final durationStr = '${hours > 0 ? "$hours小时" : ""}${minutes > 0 ? "$minutes分" : ""}$secs秒';
+        final durationStr =
+            '${hours > 0 ? "$hours小时" : ""}${minutes > 0 ? "$minutes分" : ""}$secs秒';
         _log('🎉 设备累计工作亮屏时长: $durationStr ($seconds 秒)');
       } else {
         _log('❌ 亮屏时长抓取失败: $response');
       }
     } catch (e) {
       _log('时长抓取异常: $e');
-    }
-  }
-
-  void _sendBleEnterSleep() async {
-    if (_bleClient == null) return;
-    _log('发送蓝牙熄屏休眠待机指令...');
-    try {
-      final response = await _bleClient!.sendCommand({'action': 'ENTER_SLEEP'}, timeoutSec: 5);
-      if (response['status'] == 'success') {
-        _log('🎉 待机指令下发成功！C3 屏幕已自动熄灭并进入节能待机广播。');
-      } else {
-        _log('❌ 待机指令发送失败: $response');
-      }
-    } catch (e) {
-      _log('待机发生异常: $e');
     }
   }
 
@@ -354,7 +323,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
           'left': filename,
         }, timeoutSec: 8);
         applySw.stop();
-        _log('第 $i 轮 -> ✅ 蓝牙刷新指令响应: $response (耗时: ${applySw.elapsedMilliseconds} ms)');
+        _log(
+            '第 $i 轮 -> ✅ 蓝牙刷新指令响应: $response (耗时: ${applySw.elapsedMilliseconds} ms)');
       } catch (e) {
         testPassed = false;
         failedRound = i;
@@ -371,10 +341,12 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
       _log('第 $i 轮 -> 正在通过蓝牙发送 Ping 探测设备连通性...');
       final pingSw = Stopwatch()..start();
       try {
-        final response = await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
+        final response =
+            await _bleClient!.sendCommand({'action': 'PING'}, timeoutSec: 4);
         pingSw.stop();
         if (response['status'] == 'success') {
-          _log('第 $i 轮 -> ✅ 蓝牙连通性正常！往返时延 RTT: ${pingSw.elapsedMilliseconds} ms');
+          _log(
+              '第 $i 轮 -> ✅ 蓝牙连通性正常！往返时延 RTT: ${pingSw.elapsedMilliseconds} ms');
         } else {
           testPassed = false;
           failedRound = i;
@@ -476,7 +448,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                 TextButton.icon(
                   onPressed: _disconnect,
                   icon: const Icon(Icons.close, color: Colors.redAccent),
-                  label: const Text('断开', style: TextStyle(color: Colors.redAccent)),
+                  label: const Text('断开',
+                      style: TextStyle(color: Colors.redAccent)),
                 ),
             ],
           ),
@@ -493,10 +466,14 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                     itemBuilder: (context, index) {
                       final r = _scanResults[index];
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         child: ListTile(
-                          title: Text(r.device.platformName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('MAC: ${r.device.remoteId}  |  RSSI: ${r.rssi} dBm'),
+                          title: Text(r.device.platformName,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              'MAC: ${r.device.remoteId}  |  RSSI: ${r.rssi} dBm'),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -506,7 +483,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                               ),
                               TextButton(
                                 onPressed: () => _connect(r.device, true),
-                                child: const Text('户外模式 (FFE0)', style: TextStyle(color: Colors.amber)),
+                                child: const Text('户外模式 (FFE0)',
+                                    style: TextStyle(color: Colors.amber)),
                               ),
                             ],
                           ),
@@ -529,27 +507,41 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('已连接: ${_selectedDevice!.platformName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurpleAccent)),
+                      Text('已连接: ${_selectedDevice!.platformName}',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepPurpleAccent)),
                       const Divider(),
-                      
+
                       // 1. WiFi 配网区域 (如果当前服务是 FFF0)
-                      if (_bleClient!.serviceUuid.toLowerCase() == _provServiceUuid.toLowerCase()) ...[
-                        const Text('Scenario 1: 配网与初始化', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                      if (_bleClient!.serviceUuid.toLowerCase() ==
+                          _provServiceUuid.toLowerCase()) ...[
+                        const Text('Scenario 1: 配网与初始化',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amberAccent)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _ssidController,
-                          decoration: const InputDecoration(labelText: 'WiFi SSID', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                              labelText: 'WiFi SSID',
+                              border: OutlineInputBorder()),
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _passController,
-                          decoration: const InputDecoration(labelText: 'WiFi 密码', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                              labelText: 'WiFi 密码',
+                              border: OutlineInputBorder()),
                           obscureText: true,
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _tokenController,
-                          decoration: const InputDecoration(labelText: '云端绑定 Token (可选)', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                              labelText: '云端绑定 Token (可选)',
+                              border: OutlineInputBorder()),
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -557,7 +549,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: _sendProvision,
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.deepPurple),
                                 child: const Text('执行 WiFi 配网 (Reboot)'),
                               ),
                             ),
@@ -565,7 +558,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: _sendOutdoorInit,
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo),
                                 child: const Text('执行户外初始化 (Reboot)'),
                               ),
                             ),
@@ -574,45 +568,42 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                       ],
 
                       // 2. 户外控制区域 (如果当前服务是 FFE0)
-                      if (_bleClient!.serviceUuid.toLowerCase() == _outdoorServiceUuid.toLowerCase()) ...[
-                        const Text('Scenario 2: 户外直连控制 (需 AUTH)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                      if (_bleClient!.serviceUuid.toLowerCase() ==
+                          _outdoorServiceUuid.toLowerCase()) ...[
+                        const Text('Scenario 2: 户外直连控制 (需 AUTH)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amberAccent)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _localKeyController,
-                          decoration: const InputDecoration(labelText: '安全密钥 (Local Key)', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                              labelText: '安全密钥 (Local Key)',
+                              border: OutlineInputBorder()),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _sendAuth,
-                                icon: const Icon(Icons.security),
-                                label: const Text('安全鉴权 AUTH'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _sendToggleRelay,
-                                icon: Icon(_relayState ? Icons.lightbulb : Icons.lightbulb_outline),
-                                label: Text(_relayState ? '关闭指示灯' : '打开指示灯'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _relayState ? Colors.green : Colors.grey[700],
-                                ),
-                              ),
-                            ),
-                          ],
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _sendAuth,
+                            icon: const Icon(Icons.security),
+                            label: const Text('安全鉴权 AUTH'),
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        const Text('3. 蓝牙直连切换表情', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                        const Text('3. 蓝牙直连切换表情',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amberAccent)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Expanded(
                               child: TextField(
                                 controller: _bleEyeController,
-                                decoration: const InputDecoration(labelText: '表情文件名 (如 test_anim.gif)', border: OutlineInputBorder()),
+                                decoration: const InputDecoration(
+                                    labelText: '表情文件名 (如 test_anim.gif)',
+                                    border: OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -631,13 +622,19 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _runTripleBleApplyTest,
-                            icon: const Icon(Icons.bug_report, color: Colors.white),
-                            label: const Text('执行 3次 连续刷新测试 (蓝牙漏洞检测)', style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.pink[800]),
+                            icon: const Icon(Icons.bug_report,
+                                color: Colors.white),
+                            label: const Text('执行 3次 连续刷新测试 (蓝牙漏洞检测)',
+                                style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.pink[800]),
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text('4. 蓝牙高阶控制功能 (与 LAN 对称)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                        const Text('4. 蓝牙高阶控制功能 (与 LAN 对称)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amberAccent)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -646,7 +643,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                                 onPressed: _sendBlePing,
                                 icon: const Icon(Icons.bolt),
                                 label: const Text('蓝牙 Ping 检测'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal[800]),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.teal[800]),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -655,7 +653,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                                 onPressed: _sendBleSyncTime,
                                 icon: const Icon(Icons.access_time),
                                 label: const Text('蓝牙时间同步'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo[800]),
                               ),
                             ),
                           ],
@@ -668,16 +667,8 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                                 onPressed: _sendBleGetDuration,
                                 icon: const Icon(Icons.hourglass_empty),
                                 label: const Text('蓝牙获取亮屏'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[800]),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _sendBleEnterSleep,
-                                icon: const Icon(Icons.power_settings_new),
-                                label: const Text('蓝牙待机休眠'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[900]),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[800]),
                               ),
                             ),
                           ],
@@ -709,7 +700,11 @@ class _BleTesterScreenState extends State<BleTesterScreen> {
                   children: [
                     Icon(Icons.terminal, size: 16, color: Colors.green),
                     SizedBox(width: 6),
-                    Text('通信原始日志面板', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('通信原始日志面板',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   ],
                 ),
                 const Divider(color: Colors.green, height: 10),

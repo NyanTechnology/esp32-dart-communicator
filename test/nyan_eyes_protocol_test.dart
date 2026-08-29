@@ -57,19 +57,23 @@ void main() {
     expect(payload, {'action': 'SCAN_WIFI'});
   });
 
-  group('NyanEyesProtocol.setPowerSaving', () {
-    test('should build enabled payload', () {
+  group('NyanEyesProtocol.setBrightness', () {
+    test('should build brightness payload', () {
       final payload =
-          jsonDecode(NyanEyesProtocol.setPowerSaving(true))
+          jsonDecode(NyanEyesProtocol.setBrightness(65))
               as Map<String, dynamic>;
-      expect(payload, {'action': 'SET_POWER_SAVING', 'enabled': true});
+      expect(payload, {'action': 'SET_BRIGHTNESS', 'brightness': 65});
     });
 
-    test('should build disabled payload', () {
-      final payload =
-          jsonDecode(NyanEyesProtocol.setPowerSaving(false))
-              as Map<String, dynamic>;
-      expect(payload, {'action': 'SET_POWER_SAVING', 'enabled': false});
+    test('should reject values outside 0-100', () {
+      expect(() => NyanEyesProtocol.setBrightness(-1), throwsRangeError);
+      expect(() => NyanEyesProtocol.setBrightness(101), throwsRangeError);
     });
+  });
+
+  test('getBrightness should build compact read payload', () {
+    final payload =
+        jsonDecode(NyanEyesProtocol.getBrightness()) as Map<String, dynamic>;
+    expect(payload, {'action': 'GET_BRIGHTNESS'});
   });
 }

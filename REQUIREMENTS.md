@@ -70,8 +70,7 @@
       "sta_ssid": "Hikari_IOT",             // 当前连入的路由器 SSID
       "sta_ip": "10.20.0.163",              // 局域网物理 IP
       "sta_connected": true,                 // 连网在线状态
-      "battery_level": 98,                  // 电池电量 (0 - 100)
-      "power_saving_mode": false            // 节能模式是否开启
+      "battery_level": 98                   // 电池电量 (0 - 100)
     }
     ```
 
@@ -151,30 +150,8 @@
 
 ---
 
-### 8. 节能与睡眠控制指令 [已延后]
-提供局域网一键关机或控制进入超低功耗节电模式的功能。
-
-*   **请求路由**：`POST /api/power/sleep`
-*   **请求内容 (JSON)**：
-    ```json
-    {
-      "action": "ENTER_SLEEP",
-      "sleep_seconds": 3600,             // 定时睡眠秒数，0 为无限期睡眠（等按键唤醒）
-      "disable_backlight": true          // 立即关闭背光和双屏幕
-    }
-    ```
-*   **设备端行为**：
-    1. 立即回复手机 success 应答，断开所有 TCP/HTTP 活动连接。
-    2. 关闭两块 GC9D01 的屏幕背光，执行 LCD 面板的 `Sleep In` 关屏保护。
-    3. 关闭 Wi-Fi 射频、蓝牙射频和后台所有耗电任务。
-    4. 进入 ESP32-C3 的 **Deep Sleep (深睡眠)** 或者是 **Light Sleep (轻睡眠)** 节能模式，等待定时器溢出或通过物理 IO 按键重新唤醒启动。
-*   **设备端响应 (JSON 200 OK)**：
-    ```json
-    {
-      "status": "success",
-      "message": "entering_sleep_mode"
-    }
-    ```
+### 8. 节能与睡眠控制指令 [已移除]
+当前固件不支持该功能，SDK 与 App 不得暴露相关状态字段、控制指令或设置入口。
 
 ---
 

@@ -18,6 +18,7 @@ void main() {
         'managerHost': 'manager.local',
         'managerUrl': 'http://manager.local',
         'isManager': true,
+        'brightness': 80,
       };
 
       final deviceInfo = DeviceInfo.fromJson(json);
@@ -35,6 +36,7 @@ void main() {
       expect(deviceInfo.managerHost, 'manager.local');
       expect(deviceInfo.managerUrl, 'http://manager.local');
       expect(deviceInfo.isManager, true);
+      expect(deviceInfo.brightness, 80);
     });
 
     test('fromJson should parse snake_case keys (fallback)', () {
@@ -84,9 +86,7 @@ void main() {
     });
 
     test('fromJson should provide default values for missing fields', () {
-      final json = {
-        'mode': 'AP',
-      };
+      final json = {'mode': 'AP'};
 
       final deviceInfo = DeviceInfo.fromJson(json);
       expect(deviceInfo.firmware, '');
@@ -98,10 +98,7 @@ void main() {
     });
 
     test('fromJson should parse mac address', () {
-      final json = {
-        'mode': 'AP',
-        'mac': '00:11:22:33:44:55',
-      };
+      final json = {'mode': 'AP', 'mac': '00:11:22:33:44:55'};
 
       final deviceInfo = DeviceInfo.fromJson(json);
       expect(deviceInfo.mac, '00:11:22:33:44:55');
@@ -119,10 +116,15 @@ void main() {
         mac: '00:11:22:33:44:55',
       );
 
-      final updated = deviceInfo.copyWith(mac: '66:77:88:99:aa:bb', mode: 'STA');
+      final updated = deviceInfo.copyWith(
+        mac: '66:77:88:99:aa:bb',
+        mode: 'STA',
+        brightness: 45,
+      );
       expect(updated.mac, '66:77:88:99:aa:bb');
       expect(updated.mode, 'STA');
       expect(updated.firmware, '1.0.0');
+      expect(updated.brightness, 45);
     });
 
     test('fromJson should parse sys_mode for all three mode values', () {
@@ -135,15 +137,18 @@ void main() {
       }
     });
 
-    test('fromJson should leave sysMode null when old firmware omits sys_mode', () {
-      final deviceInfo = DeviceInfo.fromJson({
-        'firmware': '2.0.0',
-        'mode': 'STA',
-        'staSsid': 'MyHomeWifi',
-      });
-      expect(deviceInfo.sysMode, isNull);
-      expect(deviceInfo.staSsid, 'MyHomeWifi');
-    });
+    test(
+      'fromJson should leave sysMode null when old firmware omits sys_mode',
+      () {
+        final deviceInfo = DeviceInfo.fromJson({
+          'firmware': '2.0.0',
+          'mode': 'STA',
+          'staSsid': 'MyHomeWifi',
+        });
+        expect(deviceInfo.sysMode, isNull);
+        expect(deviceInfo.staSsid, 'MyHomeWifi');
+      },
+    );
 
     test('copyWith should override and preserve sysMode', () {
       final deviceInfo = DeviceInfo(

@@ -9,7 +9,7 @@
 目前对 `REQUIREMENTS.md` 中定义的 10 大功能核心需求进行全面盘点，状态分类如下：
 
 *   **🟩 100% 已满足 (Fully Satisfied)**：**7 项**（需求 1、2、3、4、5、6、7）—— 链路完全通畅，功能验收通过！
-*   **🟪 已延期/挂起 (Postponed)**：**1 项**（需求 8）—— 控制休眠功能，因优先级调整已进行排期挂起。
+*   **⬜ 已移除 (Removed)**：**1 项**（原需求 8）—— 省电与休眠控制不在当前产品范围内。
 *   **🟥 当前缺失 (Missing / Backlog)**：**2 项**（需求 9、10）—— 新增屏幕显示时长获取及 RTC 时间同步功能。
 
 ### 📋 需求合规性对照矩阵 (Compliance Matrix)
@@ -18,12 +18,12 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **REQ-1** | **蓝牙配对与安全建立** | 已实现广播 `"NyanEyes_ESP32"` 并绑定 128位 UUID，具备 AUTH 鉴权失败断连保护。 | `DeviceBleClient` 已实现 128位 GATT 通道解析与 Notify 监听。 | **🟩 100% 已满足** |
 | **REQ-2** | **网络配置信息配置** | `ble_server.c` 成功解析 cJSON 组包，并可安全写入 NVS 重启。 | App 完美封装配网 Payload 结构并支持下发。 | **🟩 100% 已满足** |
-| **REQ-3** | **设备基础信息获取** | 已完美集成 `battery_level` 和 `power_saving_mode` 字段到 `GET /api/device_info`。 | `DeviceInfo` 实体类、JSON 解析层和局域网控制面板 UI 已全部对齐显示。 | **🟩 100% 已满足** |
+| **REQ-3** | **设备基础信息获取** | `GET /api/device_info` 返回设备与网络基础信息。 | `DeviceInfo` 实体类和 JSON 解析层已对齐。 | **🟩 100% 已满足** |
 | **REQ-4** | **眼部显示与文件上传** | 已实现 `POST /api/upload` 写入 SPIFFS，以及 `GET /api/eyes/apply` 屏幕刷新。 | SDK 已封装 Multipart 上传和大图应用，测试 App 工作正常。 | **🟩 100% 已满足** |
 | **REQ-5** | **电量数据读取与上报** | 已实现独立 `GET /api/battery` 局域网电量获取接口。 | SDK 补全 `fetchBatteryLevel` API，UI 新增一键刷新指示。 | **🟩 100% 已满足** |
 | **REQ-6** | **基础连接性检测 (Ping)** | 已实现高响应 `/api/ping` GET 心跳探测接口。 | SDK 补全 `pingDevice` API 支持毫秒级 RTT 解析，UI 新增一键检测。 | **🟩 100% 已满足** |
 | **REQ-7** | **用户信息与云端绑定** | 已实现 `POST /api/user/bind` 接口，自动存入 NVS 并拉起异步 cloud_binding_task。 | SDK 补全 `bindUser` POST 动作，UI 新增专用绑定控制面板。 | **🟩 100% 已满足** |
-| **REQ-8** | **节能与睡眠控制指令** | `power_manager.c` 具备睡眠逻辑，但 **未在 HTTP 服务中注册控制路由**。 | 缺失一键关屏休眠控制接口。 | **🟪 已延期/挂起** |
+| **REQ-8** | **节能与睡眠控制指令** | 当前固件不提供该功能。 | 协议、模型和 UI 入口已移除。 | **⬜ 已移除** |
 | **REQ-9** | **累计亮屏时长获取** | 缺失 `GET /api/display/duration` 局域网获取接口。 | 缺失累计亮屏时长获取 Dart 接口与 UI 统计面板。 | **🟥 当前缺失** |
 | **REQ-10** | **时间同步功能** | 缺失 `POST /api/time/sync` 局域网硬件 RTC 时间同步接口。 | 缺失同步系统时间到硬件 RTC 的 API 与操作。 | **🟥 当前缺失** |
 
@@ -32,10 +32,7 @@
 ## 🔍 2. 研发缺口深度剖析 (Gap Analysis)
 
 ### REQ-3: 设备基础信息获取 ＆ REQ-5: 电量数据局域网通道
-*   **Gap 描述**：目前手机在通过 Wi-Fi 控制板子时，主界面通常需要展示“电量图标”、“电量百分比”和“当前节电模式状态”。但目前的固件 `/api/device_info` 回执中**缺失了这两个字段**，导致局域网面板无法展示电池健康度。
-*   **修复建议**：
-    *   在固件端 `device_info_get_handler()` 中，使用 NVS 读取节能状态并获取电源管理器电池电压，追加 `battery_level` (0-100) 与 `power_saving_mode` (bool) 键值对。
-    *   在 Flutter SDK 的 `DeviceInfo` 实体类中，补齐这两个字段的反序列化映射。
+*   **当前状态**：设备基础信息与电量接口仍可供调试；正式 App 设置页不再展示电量卡片和手动刷新入口。
 
 ### REQ-6: 基础连接性检测 (Ping)
 *   **Gap 描述**：App 目前在执行上传大文件或频繁发送控制指令前，无法极速检测连接畅通度，如果连接失效只能等待高时延的网络超时。
@@ -47,8 +44,8 @@
     *   在固件端添加 `POST /api/user/bind` 处理器，解析 `user_id` 与 `bind_token` 并存入 NVS，然后通过 FreeRTOS 动态拉起 `cloud_binding_task` 上报线程。
     *   在 SDK 的 `DeviceHttpClient` 中新增 `bindUser(baseUrl, userId, token)`。
 
-### REQ-8: 节能与睡眠控制指令 [已延期]
-*   **Gap 描述**：因项目排期与测试场景优先级调整，该功能已延后挂起。
+### REQ-8: 节能与睡眠控制指令 [已移除]
+*   **当前状态**：当前固件不支持该功能，SDK 与 App 不再暴露相关状态和控制入口。
 
 ### REQ-9: 屏幕每日累计显示时长获取
 *   **Gap 描述**：App 需要展示设备每日的工作亮屏累计时间做健康度分析。

@@ -80,12 +80,17 @@ class NyanEyesProtocol {
     return '{"action":"SET_MODE","mode":"$normalized"}';
   }
 
-  /// 构造省电模式双向控制负载。
-  ///
-  /// 开启后设备关闭背光、暂停 GIF，并启用 Wi-Fi 调制解调器省电；
-  /// 关闭后恢复正常显示。该状态不会跨设备重启保留。
-  static String setPowerSaving(bool enabled) {
-    return '{"action":"SET_POWER_SAVING","enabled":$enabled}';
+  /// 构造屏幕背光亮度控制负载，取值范围为 0-100。
+  static String setBrightness(int brightness) {
+    if (brightness < 0 || brightness > 100) {
+      throw RangeError.range(brightness, 0, 100, 'brightness');
+    }
+    return '{"action":"SET_BRIGHTNESS","brightness":$brightness}';
+  }
+
+  /// 构造读取当前屏幕背光亮度的短负载。
+  static String getBrightness() {
+    return '{"action":"GET_BRIGHTNESS"}';
   }
 
   /// 构造户外切换 Wi-Fi / 居家模式绑定负载 (Step 2)

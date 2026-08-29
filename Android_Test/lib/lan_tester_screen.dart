@@ -25,7 +25,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
   // Controllers
   final _manualIpController = TextEditingController(text: '10.20.0.163');
   final _userIdController = TextEditingController(text: 'usr_94883199');
-  final _bindTokenController = TextEditingController(text: 'token_abcdefg_9988');
+  final _bindTokenController =
+      TextEditingController(text: 'token_abcdefg_9988');
   final _leftFilenameController = TextEditingController(text: 'test_anim.gif');
   final _rightFilenameController = TextEditingController(text: 'test_anim.gif');
   bool _leftMirror = false;
@@ -46,7 +47,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     debugPrint('📱 [LAN] $msg');
     if (!mounted) return;
     final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
     setState(() {
       _logs.insert(0, '[$timeStr] $msg');
     });
@@ -72,7 +74,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       });
       _log('扫描完成。共发现 ${devices.length} 个搭载 NyanEye 固件的活动设备。');
       for (var d in devices) {
-        _log('发现设备 IP: ${d.staIp} | mDNS Host: ${d.mdnsHost} | 固件: ${d.firmware}');
+        _log(
+            '发现设备 IP: ${d.staIp} | mDNS Host: ${d.mdnsHost} | 固件: ${d.firmware}');
       }
     } catch (e) {
       _log('发现接口异常: $e');
@@ -96,7 +99,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
           _selectedBaseUrl = baseUrl;
           _displayDurationSeconds = null;
         });
-        _log('抓取成功！固件版本: ${info.firmware} | 连网状态: ${info.staConnected ? "已连接" : "未连接"}');
+        _log(
+            '抓取成功！固件版本: ${info.firmware} | 连网状态: ${info.staConnected ? "已连接" : "未连接"}');
 
         // Auto fetch screen active duration
         final duration = await _httpClient.fetchDisplayDuration(baseUrl);
@@ -133,7 +137,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         final ext = dotIndex != -1 ? originalName.substring(dotIndex) : '';
         final filename = sanitizeSpiffsFilename(originalName, ext);
 
-        _log('已选择文件: $originalName | 净化并适配 SPIFFS 文件名: $filename | 大小: ${fileBytes.length} 字节');
+        _log(
+            '已选择文件: $originalName | 净化并适配 SPIFFS 文件名: $filename | 大小: ${fileBytes.length} 字节');
         _log('正在流式分包上传文件至 C3 (SPIFFS) ...');
 
         final success = await _httpClient.uploadEyeData(
@@ -168,8 +173,9 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     final leftFile = _leftFilenameController.text.trim();
     final rightFile = _rightFilenameController.text.trim();
 
-    _log('请求应用显示 -> 左眼: $leftFile, 右眼: $rightFile, 镜像: $_leftMirror/$_rightMirror');
-    
+    _log(
+        '请求应用显示 -> 左眼: $leftFile, 右眼: $rightFile, 镜像: $_leftMirror/$_rightMirror');
+
     try {
       final success = await _httpClient.applyEyeConfigs(
         _selectedBaseUrl!,
@@ -234,7 +240,6 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
             managerHost: _selectedDevice!.managerHost,
             managerUrl: _selectedDevice!.managerUrl,
             batteryLevel: val,
-            powerSavingMode: _selectedDevice!.powerSavingMode,
           );
         });
       } else {
@@ -273,7 +278,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
     _log('正在向 C3 发送云端绑定请求...');
     try {
-      final success = await _httpClient.bindUser(_selectedBaseUrl!, userId, token);
+      final success =
+          await _httpClient.bindUser(_selectedBaseUrl!, userId, token);
       if (!mounted) return;
       if (success) {
         _log('🎉 绑定成功！C3 已接收到用户信息，正在后台启动云端注册上报 (cloud_binding_task) ...');
@@ -282,43 +288,6 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       }
     } catch (e) {
       _log('绑定异常: $e');
-    }
-  }
-
-  void _enterSleepMode() async {
-    if (_selectedBaseUrl == null) return;
-
-    _log('⚠️ 正在向 C3 发送一键进入低功耗待机命令...');
-    try {
-      final success = await _httpClient.enterSleepMode(_selectedBaseUrl!);
-      if (!mounted) return;
-      if (success) {
-        _log('🎉 远程待机命令成功！C3 屏幕已硬熄灭，系统射频进入低电量轻休眠监听状态。');
-        _log('💡 提示：在 App 中重新点击任意“应用眼部配置”指令，设备即可瞬间自动唤醒！');
-        setState(() {
-          _selectedDevice = DeviceInfo(
-            firmware: _selectedDevice!.firmware,
-            mode: _selectedDevice!.mode,
-            apSsid: _selectedDevice!.apSsid,
-            apIp: _selectedDevice!.apIp,
-            apClients: _selectedDevice!.apClients,
-            staConnected: _selectedDevice!.staConnected,
-            isManager: _selectedDevice!.isManager,
-            staSsid: _selectedDevice!.staSsid,
-            staIp: _selectedDevice!.staIp,
-            mdnsHost: _selectedDevice!.mdnsHost,
-            mdnsUrl: _selectedDevice!.mdnsUrl,
-            managerHost: _selectedDevice!.managerHost,
-            managerUrl: _selectedDevice!.managerUrl,
-            batteryLevel: _selectedDevice!.batteryLevel,
-            powerSavingMode: true,
-          );
-        });
-      } else {
-        _log('❌ 待机命令发送失败。');
-      }
-    } catch (e) {
-      _log('待机发生异常: $e');
     }
   }
 
@@ -466,7 +435,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       if (testPassed) {
         _log('🎉🎉🎉 [测试完成] 连续 3 轮“上传并显示”压力测试顺利通过！');
         _log('✅ 结论: 当前固件已成功解决“上传显示图像三次后导致设备断链”的问题！');
-        
+
         if (!mounted) return;
         showDialog(
           context: context,
@@ -495,7 +464,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       } else {
         _log('🚨🚨🚨 [测试失败] 压力测试异常中断！');
         _log('❌ 失败原因: $failureReason');
-        _log('💡 结论: 固件仍存在断链或崩溃问题，请检查固件端的 SPIFFS 写冲突、网络协议栈或内存泄漏（Out of Memory）！');
+        _log(
+            '💡 结论: 固件仍存在断链或崩溃问题，请检查固件端的 SPIFFS 写冲突、网络协议栈或内存泄漏（Out of Memory）！');
 
         if (!mounted) return;
         showDialog(
@@ -532,7 +502,7 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
   Future<Uint8List?> _convertImageToRgb565(Uint8List originalBytes) async {
     try {
       _log('🎨 [转换引擎] 正在解码并重采样图像为 160x160...');
-      
+
       // 使用 Flutter built-in dart:ui 解码并重采样到 160x160
       final codec = await ui.instantiateImageCodec(
         originalBytes,
@@ -542,17 +512,18 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
       );
       final frameInfo = await codec.getNextFrame();
       final image = frameInfo.image;
-      
+
       _log('🎨 [转换引擎] 获取原始 RGBA8888 像素数据...');
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.rawRgba);
       if (byteData == null) {
         _log('❌ [转换引擎] 错误: 无法提取像素数据');
         return null;
       }
-      
+
       final rgbaBytes = byteData.buffer.asUint8List();
       final rgb565Bytes = Uint8List(160 * 160 * 2); // 恰好 51200 字节
-      
+
       _log('🎨 [转换引擎] 正在将 RGBA8888 转换为 RGB565 Big Endian Byte Array...');
       int offset = 0;
       for (int i = 0; i < rgbaBytes.length; i += 4) {
@@ -564,12 +535,12 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         final g6 = (g >> 2) & 0x3F;
         final b5 = (b >> 3) & 0x1F;
         final rgb565 = (r5 << 11) | (g6 << 5) | b5;
-        
+
         // 存储为 Big Endian（大端序：高8位在前，低8位在后）
         rgb565Bytes[offset++] = (rgb565 >> 8) & 0xFF;
         rgb565Bytes[offset++] = rgb565 & 0xFF;
       }
-      
+
       _log('🎨 [转换引擎] 转换完成！输出大小: ${rgb565Bytes.length} 字节 (.eye 格式标准大小)');
       return rgb565Bytes;
     } catch (e) {
@@ -603,7 +574,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
       final isGif = originalName.toLowerCase().endsWith('.gif');
       final targetExtension = isGif ? '.gif' : '.eye';
-      final targetFilename = sanitizeSpiffsFilename(originalName, targetExtension);
+      final targetFilename =
+          sanitizeSpiffsFilename(originalName, targetExtension);
 
       Uint8List? convertedBytes;
 
@@ -620,7 +592,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         return;
       }
 
-      _log('🚀 正在将处理完成的 $targetFilename (${convertedBytes.length} 字节) 串行流式上传至 C3 (SPIFFS)...');
+      _log(
+          '🚀 正在将处理完成的 $targetFilename (${convertedBytes.length} 字节) 串行流式上传至 C3 (SPIFFS)...');
       final success = await _httpClient.uploadEyeData(
         _selectedBaseUrl!,
         convertedBytes,
@@ -666,8 +639,10 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
               if (_selectedBaseUrl != null) ...[
                 TextButton.icon(
                   onPressed: _pingDevice,
-                  icon: const Icon(Icons.network_check, color: Colors.greenAccent),
-                  label: const Text('网络检测 (Ping)', style: TextStyle(color: Colors.greenAccent)),
+                  icon: const Icon(Icons.network_check,
+                      color: Colors.greenAccent),
+                  label: const Text('网络检测 (Ping)',
+                      style: TextStyle(color: Colors.greenAccent)),
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
@@ -679,7 +654,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                     _log('退出当前设备控制。');
                   },
                   icon: const Icon(Icons.close, color: Colors.amber),
-                  label: const Text('释放设备', style: TextStyle(color: Colors.amber)),
+                  label:
+                      const Text('释放设备', style: TextStyle(color: Colors.amber)),
                 ),
               ],
             ],
@@ -689,7 +665,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
         // Manual IP Direct Connection Pane (Fallback for blocked multicast)
         if (_selectedBaseUrl == null) ...[
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             child: Row(
               children: [
                 Expanded(
@@ -698,7 +675,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                     decoration: const InputDecoration(
                       labelText: '手动直连 IP (例如: 10.20.0.163)',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                   ),
                 ),
@@ -732,10 +710,14 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       // Reconstruct active URL (C3 runs web server on standard port 80)
                       final baseUrl = 'http://${d.staIp}:80';
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         child: ListTile(
-                          title: Text('IP: ${d.staIp}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('MDNS: ${d.mdnsHost ?? "nyaneye.local"} | FW: ${d.firmware}'),
+                          title: Text('IP: ${d.staIp}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              'MDNS: ${d.mdnsHost ?? "nyaneye.local"} | FW: ${d.firmware}'),
                           trailing: ElevatedButton.icon(
                             onPressed: () => _fetchDeviceInfo(baseUrl),
                             icon: const Icon(Icons.power_settings_new),
@@ -760,27 +742,34 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('活动控制台: $_selectedBaseUrl', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
-                      Text('设备 Wi-Fi 网卡: ${_selectedDevice!.staSsid} (IP: ${_selectedDevice!.staIp})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      Text('活动控制台: $_selectedBaseUrl',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.greenAccent)),
+                      Text(
+                          '设备 Wi-Fi 网卡: ${_selectedDevice!.staSsid} (IP: ${_selectedDevice!.staIp})',
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.battery_charging_full, size: 14, color: Colors.green[400]),
+                          Icon(Icons.battery_charging_full,
+                              size: 14, color: Colors.green[400]),
                           const SizedBox(width: 4),
-                          Text('电量: ${_selectedDevice!.batteryLevel ?? 100}%', style: TextStyle(fontSize: 12, color: Colors.green[400])),
+                          Text('电量: ${_selectedDevice!.batteryLevel ?? 100}%',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.green[400])),
                           const SizedBox(width: 6),
                           InkWell(
                             onTap: _refreshBattery,
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
                               padding: const EdgeInsets.all(2.0),
-                              child: Icon(Icons.refresh, size: 12, color: Colors.green[200]),
+                              child: Icon(Icons.refresh,
+                                  size: 12, color: Colors.green[200]),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Icon(Icons.energy_savings_leaf, size: 14, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400]),
-                          const SizedBox(width: 4),
-                          Text('节电模式: ${_selectedDevice!.powerSavingMode == true ? "开启" : "关闭"}', style: TextStyle(fontSize: 12, color: _selectedDevice!.powerSavingMode == true ? Colors.amber[400] : Colors.grey[400])),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -790,7 +779,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           const SizedBox(width: 4),
                           Text(
                             '今日累计亮屏: ${_displayDurationSeconds != null ? _formatDuration(_displayDurationSeconds!) : "0秒"}',
-                            style: TextStyle(fontSize: 12, color: Colors.blue[300]),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.blue[300]),
                           ),
                           const SizedBox(width: 6),
                           InkWell(
@@ -798,11 +788,13 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
                               padding: const EdgeInsets.all(2.0),
-                              child: Icon(Icons.refresh, size: 12, color: Colors.blue[200]),
+                              child: Icon(Icons.refresh,
+                                  size: 12, color: Colors.blue[200]),
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Icon(Icons.access_time, size: 14, color: Colors.indigoAccent[100]),
+                          Icon(Icons.access_time,
+                              size: 14, color: Colors.indigoAccent[100]),
                           const SizedBox(width: 4),
                           TextButton(
                             onPressed: _syncTime,
@@ -825,7 +817,10 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       const Divider(),
 
                       // 1. HTTP 动图上传区域
-                      const Text('1. 上传眼部图像/GIF 动画 (.eye / .gif)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent)),
+                      const Text('1. 上传眼部图像/GIF 动画 (.eye / .gif)',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.tealAccent)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -836,7 +831,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                               label: const Text('直接上传 .eye/.gif'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.teal[800],
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
                               ),
                             ),
                           ),
@@ -844,18 +840,24 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: _pickConvertAndUploadImage,
-                              icon: const Icon(Icons.transform, color: Colors.amberAccent),
-                              label: const Text('智能转换 (JPG/PNG/GIF)', style: TextStyle(color: Colors.amberAccent, fontSize: 11)),
+                              icon: const Icon(Icons.transform,
+                                  color: Colors.amberAccent),
+                              label: const Text('智能转换 (JPG/PNG/GIF)',
+                                  style: TextStyle(
+                                      color: Colors.amberAccent, fontSize: 11)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.cyan[900],
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
                               ),
                             ),
                           ),
                         ],
                       ),
                       CheckboxListTile(
-                        title: const Text('上传成功后自动设为眼部输出并刷新显示', style: TextStyle(fontSize: 12, color: Colors.tealAccent)),
+                        title: const Text('上传成功后自动设为眼部输出并刷新显示',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.tealAccent)),
                         value: _autoApplyAfterUpload,
                         dense: true,
                         contentPadding: EdgeInsets.zero,
@@ -869,21 +871,28 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                       const SizedBox(height: 16),
 
                       // 2. HTTP 动态眼部应用控制
-                      const Text('2. 切换眼部配置文件 & 动画应用', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent)),
+                      const Text('2. 切换眼部配置文件 & 动画应用',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.tealAccent)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _leftFilenameController,
-                              decoration: const InputDecoration(labelText: '左眼文件名称', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                  labelText: '左眼文件名称',
+                                  border: OutlineInputBorder()),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: _rightFilenameController,
-                              decoration: const InputDecoration(labelText: '右眼文件名称', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                  labelText: '右眼文件名称',
+                                  border: OutlineInputBorder()),
                             ),
                           ),
                         ],
@@ -893,7 +902,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                         children: [
                           Expanded(
                             child: CheckboxListTile(
-                              title: const Text('左眼镜像', style: TextStyle(fontSize: 12)),
+                              title: const Text('左眼镜像',
+                                  style: TextStyle(fontSize: 12)),
                               value: _leftMirror,
                               onChanged: (val) {
                                 setState(() {
@@ -905,7 +915,8 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           ),
                           Expanded(
                             child: CheckboxListTile(
-                              title: const Text('右眼镜像', style: TextStyle(fontSize: 12)),
+                              title: const Text('右眼镜像',
+                                  style: TextStyle(fontSize: 12)),
                               value: _rightMirror,
                               onChanged: (val) {
                                 setState(() {
@@ -924,41 +935,55 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           onPressed: _applyEyes,
                           icon: const Icon(Icons.play_circle_outline),
                           label: const Text('应用眼部配置 GET /apply'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo[800]),
                         ),
                       ),
                       const Divider(height: 24),
 
                       // 3. 固件断链漏洞测试 (上传并显示3次)
-                      const Text('3. 固件断链漏洞检测 (连续3次上传并显示)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.pinkAccent)),
+                      const Text('3. 固件断链漏洞检测 (连续3次上传并显示)',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.pinkAccent)),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _runTripleUploadAndApplyTest,
-                          icon: const Icon(Icons.bug_report, color: Colors.white),
-                          label: const Text('执行 3次 连续上传与应用测试', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.pink[800]),
+                          icon:
+                              const Icon(Icons.bug_report, color: Colors.white),
+                          label: const Text('执行 3次 连续上传与应用测试',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.pink[800]),
                         ),
                       ),
                       const Divider(height: 24),
-                      
+
                       // 用户与云端绑定配对
-                      const Text('用户与云端绑定配对', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
+                      const Text('用户与云端绑定配对',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigoAccent)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _userIdController,
-                              decoration: const InputDecoration(labelText: '用户 ID', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                  labelText: '用户 ID',
+                                  border: OutlineInputBorder()),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: _bindTokenController,
-                              decoration: const InputDecoration(labelText: '绑定 Token', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                  labelText: '绑定 Token',
+                                  border: OutlineInputBorder()),
                             ),
                           ),
                         ],
@@ -970,31 +995,29 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                           onPressed: _bindUser,
                           icon: const Icon(Icons.cloud_upload),
                           label: const Text('上传并激活云端绑定 POST /user/bind'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[800]),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo[800]),
                         ),
                       ),
                       const Divider(height: 24),
-                      
+
                       // 4. 系统维护与模式重置
-                      const Text('4. 系统维护与模式重置', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                      const Text('4. 系统维护与模式重置',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.redAccent)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _enterSleepMode,
-                              icon: const Icon(Icons.power_settings_new, color: Colors.white),
-                              label: const Text('一键休眠待机', style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[900]),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
                               onPressed: _resetDevice,
-                              icon: const Icon(Icons.settings_backup_restore, color: Colors.white),
-                              label: const Text('恢复出厂设置', style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red[900]),
+                              icon: const Icon(Icons.settings_backup_restore,
+                                  color: Colors.white),
+                              label: const Text('恢复出厂设置',
+                                  style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[900]),
                             ),
                           ),
                         ],
@@ -1025,7 +1048,11 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
                   children: [
                     Icon(Icons.terminal, size: 16, color: Colors.green),
                     SizedBox(width: 6),
-                    Text('通信原始日志面板', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('通信原始日志面板',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   ],
                 ),
                 const Divider(color: Colors.green, height: 10),
@@ -1061,21 +1088,23 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 /// Given that the directory prefix is '/images/' (8 characters), the baseName + extension can be at most 23 characters.
 String sanitizeSpiffsFilename(String originalName, String extension) {
   final dotIndex = originalName.lastIndexOf('.');
-  String baseName = dotIndex != -1 ? originalName.substring(0, dotIndex) : originalName;
-  
+  String baseName =
+      dotIndex != -1 ? originalName.substring(0, dotIndex) : originalName;
+
   // Clean baseName of special characters, keep only standard alphanumeric characters or underscores
   baseName = baseName.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
   if (baseName.isEmpty) {
     baseName = 'eye_temp';
   }
-  
+
   // Max filename length including extension is 31 - 8 = 23 characters.
   // We limit the baseName length so that baseName + extension is <= 22 characters.
-  final maxBaseLength = 22 - extension.length; // e.g. 22 - 4 (.eye or .gif) = 18 characters
+  final maxBaseLength =
+      22 - extension.length; // e.g. 22 - 4 (.eye or .gif) = 18 characters
   if (baseName.length > maxBaseLength) {
     baseName = baseName.substring(0, maxBaseLength);
   }
-  
+
   return '$baseName$extension';
 }
 
@@ -1096,7 +1125,8 @@ Uint8List? _resizeGifTo160InIsolate(Uint8List originalBytes) {
       decodedImage,
       width: 160,
       height: 160,
-      interpolation: img.Interpolation.nearest, // Fastest interpolation for pixel efficiency
+      interpolation: img
+          .Interpolation.nearest, // Fastest interpolation for pixel efficiency
     );
 
     final gifBytes = img.encodeGif(resized);

@@ -14,7 +14,7 @@ class DeviceInfo {
     this.managerHost,
     this.managerUrl,
     this.batteryLevel,
-    this.powerSavingMode,
+    this.brightness,
     this.mac,
     this.sysMode,
   });
@@ -33,7 +33,7 @@ class DeviceInfo {
   final String? managerUrl;
   final bool isManager;
   final int? batteryLevel;
-  final bool? powerSavingMode;
+  final int? brightness;
   final String? mac;
 
   /// 设备端上报的系统运行模式："HOME" / "OUTDOOR" / "UNCONFIGURED"。
@@ -55,7 +55,7 @@ class DeviceInfo {
     String? managerUrl,
     bool? isManager,
     int? batteryLevel,
-    bool? powerSavingMode,
+    int? brightness,
     String? mac,
     String? sysMode,
   }) {
@@ -74,7 +74,7 @@ class DeviceInfo {
       managerUrl: managerUrl ?? this.managerUrl,
       isManager: isManager ?? this.isManager,
       batteryLevel: batteryLevel ?? this.batteryLevel,
-      powerSavingMode: powerSavingMode ?? this.powerSavingMode,
+      brightness: brightness ?? this.brightness,
       mac: mac ?? this.mac,
       sysMode: sysMode ?? this.sysMode,
     );
@@ -101,8 +101,12 @@ class DeviceInfo {
       managerHost: (json['managerHost'] ?? json['manager_host']) as String?,
       managerUrl: (json['managerUrl'] ?? json['manager_url']) as String?,
       isManager: (json['isManager'] ?? json['is_manager']) == true,
-      batteryLevel: json['battery_level'] != null ? parseInt(json['battery_level']) : null,
-      powerSavingMode: json['power_saving_mode'] as bool?,
+      batteryLevel: json['battery_level'] != null
+          ? parseInt(json['battery_level'])
+          : null,
+      brightness: json['brightness'] != null
+          ? parseInt(json['brightness'])
+          : null,
       mac: (json['mac'] ?? json['mac_address']) as String?,
       sysMode: (json['sys_mode'] ?? json['sysMode'])?.toString(),
     );

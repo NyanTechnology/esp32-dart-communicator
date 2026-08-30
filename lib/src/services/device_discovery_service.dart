@@ -6,7 +6,7 @@ import 'package:nsd/nsd.dart' as nsd;
 import '../models/device_info.dart';
 
 /// Service for discovering ESP32 devices on the local area network.
-/// 
+///
 /// Utilizes both mDNS and UDP broadcast for robust discovery.
 class DeviceDiscoveryService {
   final String mDnsServiceName;
@@ -14,7 +14,7 @@ class DeviceDiscoveryService {
   final String udpRequestString;
 
   /// Creates a new [DeviceDiscoveryService].
-  /// 
+  ///
   /// [mDnsServiceName] is the service type to search for (default: _nyaneyes._tcp).
   /// [mDnsSearchString] is a substring to match in the discovered service name.
   /// [udpRequestString] is the payload for UDP broadcast discovery.
@@ -28,21 +28,31 @@ class DeviceDiscoveryService {
   void _log(String emoji, String tag, String msg, [dynamic error]) {
     if (!kDebugMode) return;
     final now = DateTime.now().toString().substring(0, 23);
-    debugPrint('┌───────────────────────────────────────────────────────────────────────────────');
+    debugPrint(
+      '┌───────────────────────────────────────────────────────────────────────────────',
+    );
     debugPrint('│ $now');
-    debugPrint('├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄');
+    debugPrint(
+      '├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄',
+    );
     debugPrint('│ $emoji [$tag] $msg');
     if (error != null) {
       debugPrint('│ Error: $error');
     }
-    debugPrint('└───────────────────────────────────────────────────────────────────────────────');
+    debugPrint(
+      '└───────────────────────────────────────────────────────────────────────────────',
+    );
   }
 
   /// Scans the local network for ESP32 devices.
   Future<List<DeviceInfo>> discoverEsp32DevicesOnLan({
     Duration timeout = const Duration(seconds: 3),
   }) async {
-    _log('🔍', 'DeviceDiscoveryService', 'Starting dual-mode LAN discovery (mDNS + UDP) with timeout: ${timeout.inSeconds}s');
+    _log(
+      '🔍',
+      'DeviceDiscoveryService',
+      'Starting dual-mode LAN discovery (mDNS + UDP) with timeout: ${timeout.inSeconds}s',
+    );
     final discoveredUrls = <String>{};
     final discoveredMacs = <String, String>{};
 
@@ -51,7 +61,10 @@ class DeviceDiscoveryService {
         final discovery = await nsd.startDiscovery(mDnsServiceName);
         await Future.delayed(timeout);
         for (final service in discovery.services) {
-          if (service.name != null && service.name!.toLowerCase().contains(mDnsSearchString.toLowerCase())) {
+          if (service.name != null &&
+              service.name!.toLowerCase().contains(
+                mDnsSearchString.toLowerCase(),
+              )) {
             try {
               final resolvedService = await nsd.resolve(service);
               final host = resolvedService.host;
@@ -68,15 +81,28 @@ class DeviceDiscoveryService {
                     try {
                       final parsedMac = utf8.decode(macBytes);
                       discoveredMacs[baseUrl] = parsedMac;
-                      _log('✅', 'DeviceDiscoveryService', 'mDNS Hit: $baseUrl (MAC: $parsedMac)');
+                      _log(
+                        '✅',
+                        'DeviceDiscoveryService',
+                        'mDNS Hit: $baseUrl (MAC: $parsedMac)',
+                      );
                     } catch (_) {}
                   }
                 } else {
-                  _log('✅', 'DeviceDiscoveryService', 'mDNS Hit: $baseUrl (No TXT MAC data)');
+                  _log(
+                    '✅',
+                    'DeviceDiscoveryService',
+                    'mDNS Hit: $baseUrl (No TXT MAC data)',
+                  );
                 }
               }
             } catch (e) {
-              _log('⚠️', 'DeviceDiscoveryService', 'mDNS resolve failed for service: ${service.name}', e);
+              _log(
+                '⚠️',
+                'DeviceDiscoveryService',
+                'mDNS resolve failed for service: ${service.name}',
+                e,
+              );
             }
           }
         }
@@ -128,14 +154,23 @@ class DeviceDiscoveryService {
                     discoveredUrls.add(baseUrl);
                     if (mac != null) {
                       discoveredMacs[baseUrl] = mac;
-                      _log('🚀', 'DeviceDiscoveryService', 'UDP Hit: $baseUrl (MAC: $mac)');
+                      _log(
+                        '🚀',
+                        'DeviceDiscoveryService',
+                        'UDP Hit: $baseUrl (MAC: $mac)',
+                      );
                     } else {
                       _log('🚀', 'DeviceDiscoveryService', 'UDP Hit: $baseUrl');
                     }
                   }
                 } catch (e) {
                   // 收到了回包但无法按协议解析——打印原文，方便排查固件回包格式不匹配的问题
-                  _log('⚠️', 'DeviceDiscoveryService', 'UDP reply from ${dg.address.address}:${dg.port} could not be parsed: ${jsonStr ?? dg.data}', e);
+                  _log(
+                    '⚠️',
+                    'DeviceDiscoveryService',
+                    'UDP reply from ${dg.address.address}:${dg.port} could not be parsed: ${jsonStr ?? dg.data}',
+                    e,
+                  );
                 }
               }
             }
@@ -159,11 +194,20 @@ class DeviceDiscoveryService {
               // entitlement 时广播报文会被系统拦截。只提示一次，发现流程继续依赖 mDNS。
               if (!broadcastBlockedLogged) {
                 broadcastBlockedLogged = true;
-                _log('⚠️', 'DeviceDiscoveryService', 'UDP broadcast blocked by OS (errno 65). On iOS this requires the multicast entitlement; falling back to mDNS only.');
+                _log(
+                  '⚠️',
+                  'DeviceDiscoveryService',
+                  'UDP broadcast blocked by OS (errno 65). On iOS this requires the multicast entitlement; falling back to mDNS only.',
+                );
               }
               continue;
             }
-            _log('⚠️', 'DeviceDiscoveryService', 'UDP send to ${target.address} failed', e);
+            _log(
+              '⚠️',
+              'DeviceDiscoveryService',
+              'UDP send to ${target.address} failed',
+              e,
+            );
           }
         }
 
@@ -176,22 +220,29 @@ class DeviceDiscoveryService {
     }
 
     try {
-      await Future.wait([runMDNS(), runUDP()]).timeout(
-        timeout + const Duration(seconds: 1),
-      );
+      await Future.wait([
+        runMDNS(),
+        runUDP(),
+      ]).timeout(timeout + const Duration(seconds: 1));
     } catch (_) {
-      _log('💡', 'DeviceDiscoveryService', 'Discovery timeframe completed. Proceeding with ${discoveredUrls.length} found endpoints.');
+      _log(
+        '💡',
+        'DeviceDiscoveryService',
+        'Discovery timeframe completed. Proceeding with ${discoveredUrls.length} found endpoints.',
+      );
     }
 
     final discoveredDevices = <DeviceInfo>[];
     for (final baseUrl in discoveredUrls) {
       final uri = Uri.parse(baseUrl);
       final ip = uri.host;
-      
+
       // Attempt to get MAC from the mapping, or extract it from host/URL
       var mac = discoveredMacs[baseUrl];
       if (mac == null || mac.isEmpty) {
-        mac = extractMacFromHostOrName(ip) ?? extractMacFromHostOrName(uri.toString());
+        mac =
+            extractMacFromHostOrName(ip) ??
+            extractMacFromHostOrName(uri.toString());
       }
 
       // Ensure mdnsHost is formatted canonically: nyaneye-[lowercase_mac].local
@@ -203,19 +254,21 @@ class DeviceDiscoveryService {
         mdnsHost = ip;
       }
 
-      discoveredDevices.add(DeviceInfo(
-        firmware: 'Unknown',
-        mode: 'STA',
-        apSsid: '',
-        apIp: '',
-        apClients: 0,
-        staConnected: true,
-        isManager: false,
-        staIp: ip,
-        mac: mac,
-        mdnsHost: mdnsHost,
-        mdnsUrl: mdnsHost != null ? 'http://$mdnsHost:${uri.port}' : baseUrl,
-      ));
+      discoveredDevices.add(
+        DeviceInfo(
+          firmware: 'Unknown',
+          mode: 'STA',
+          apSsid: '',
+          apIp: '',
+          apClients: 0,
+          staConnected: true,
+          isManager: false,
+          staIp: ip,
+          mac: mac,
+          mdnsHost: mdnsHost,
+          mdnsUrl: mdnsHost != null ? 'http://$mdnsHost:${uri.port}' : baseUrl,
+        ),
+      );
     }
     return discoveredDevices;
   }

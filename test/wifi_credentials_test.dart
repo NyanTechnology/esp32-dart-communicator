@@ -40,7 +40,10 @@ void main() {
 
     test('tryParse should return null for invalid format', () {
       expect(WifiCredentials.tryParse('INVALID:S:SSID;P:PASS;'), isNull);
-      expect(WifiCredentials.tryParse('WIFI:S:SSID;'), isNull); // Missing password
+      expect(
+        WifiCredentials.tryParse('WIFI:S:SSID;'),
+        isNull,
+      ); // Missing password
     });
   });
 }

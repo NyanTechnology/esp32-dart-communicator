@@ -1,5 +1,3 @@
-library esp32_comm;
-
 export 'src/models/device_info.dart';
 export 'src/models/connect_mode.dart';
 export 'src/models/wifi_credentials.dart';

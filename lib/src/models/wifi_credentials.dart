@@ -21,14 +21,14 @@ class WifiCredentials {
   final ConnectMode connectMode;
 
   Map<String, dynamic> toJson() => {
-        'ssid': ssid,
-        'password': password,
-        'type': type,
-        'hidden': hidden,
-        'lanReachable': lanReachable,
-        'lanIp': lanIp,
-        'connectMode': connectMode.name,
-      };
+    'ssid': ssid,
+    'password': password,
+    'type': type,
+    'hidden': hidden,
+    'lanReachable': lanReachable,
+    'lanIp': lanIp,
+    'connectMode': connectMode.name,
+  };
 
   factory WifiCredentials.fromJson(Map<String, dynamic> json) {
     ConnectMode parseMode(String? raw) {

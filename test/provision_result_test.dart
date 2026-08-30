@@ -17,7 +17,7 @@ void main() {
 
     test('should allow null staIp and mode', () {
       final result = ProvisionResult(success: false);
-      
+
       expect(result.success, isFalse);
       expect(result.staIp, isNull);
       expect(result.mode, isNull);

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:esp32_comm/src/services/device_discovery_service.dart';
+import 'package:nsd/nsd.dart' as nsd;
 
 void main() {
   group('DeviceDiscoveryService MAC Extraction Tests', () {
@@ -58,5 +61,36 @@ void main() {
         );
       },
     );
+  });
+
+  group('DeviceDiscoveryService address normalization', () {
+    final discoveryService = DeviceDiscoveryService();
+
+    test('prefers a resolved numeric IPv4 address over the mDNS host', () {
+      final service = nsd.Service(
+        host: 'nyaneye-68ee8f217d70.local.',
+        addresses: [
+          InternetAddress('fe80::1'),
+          InternetAddress('192.168.0.41'),
+        ],
+      );
+
+      expect(discoveryService.preferredIpv4Address(service), '192.168.0.41');
+    });
+
+    test('normalizes Bonjour trailing dot without changing the host', () {
+      expect(
+        discoveryService.normalizeMdnsHost('nyaneye-68ee8f217d70.local.'),
+        'nyaneye-68ee8f217d70.local',
+      );
+    });
+
+    test('does not classify an mDNS hostname as an IPv4 address', () {
+      expect(
+        discoveryService.isIpv4Address('nyaneye-68ee8f217d70.local'),
+        isFalse,
+      );
+      expect(discoveryService.isIpv4Address('192.168.0.41'), isTrue);
+    });
   });
 }

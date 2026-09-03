@@ -55,10 +55,16 @@ class DeviceDiscoveryService {
     );
     final discoveredUrls = <String>{};
     final discoveredMacs = <String, String>{};
+    final discoveredMdnsHosts = <String, String>{};
 
     Future<void> runMDNS() async {
+      nsd.Discovery? discovery;
       try {
-        final discovery = await nsd.startDiscovery(mDnsServiceName);
+        discovery = await nsd.startDiscovery(
+          mDnsServiceName,
+          autoResolve: true,
+          ipLookupType: nsd.IpLookupType.v4,
+        );
         await Future.delayed(timeout);
         for (final service in discovery.services) {
           if (service.name != null &&
@@ -66,13 +72,24 @@ class DeviceDiscoveryService {
                 mDnsSearchString.toLowerCase(),
               )) {
             try {
-              final resolvedService = await nsd.resolve(service);
-              final host = resolvedService.host;
+              var resolvedService = service;
+              if (resolvedService.host == null ||
+                  resolvedService.port == null) {
+                resolvedService = await nsd.resolve(service);
+              }
+
+              final mdnsHost = normalizeMdnsHost(resolvedService.host);
+              final host = preferredIpv4Address(resolvedService) ?? mdnsHost;
               final port = resolvedService.port;
-              if (host != null) {
+              if (host != null && port != null) {
                 final displayHost = host.contains(':') ? '[$host]' : host;
                 final baseUrl = 'http://$displayHost:$port';
                 discoveredUrls.add(baseUrl);
+                if (mdnsHost != null &&
+                    mdnsHost.isNotEmpty &&
+                    !isIpv4Address(mdnsHost)) {
+                  discoveredMdnsHosts[baseUrl] = mdnsHost;
+                }
 
                 final txtRecords = resolvedService.txt;
                 if (txtRecords != null) {
@@ -106,9 +123,21 @@ class DeviceDiscoveryService {
             }
           }
         }
-        await nsd.stopDiscovery(discovery);
       } catch (e) {
         _log('⛔', 'DeviceDiscoveryService', 'mDNS Discovery critical error', e);
+      } finally {
+        if (discovery != null) {
+          try {
+            await nsd.stopDiscovery(discovery);
+          } catch (e) {
+            _log(
+              '⚠️',
+              'DeviceDiscoveryService',
+              'mDNS discovery cleanup failed',
+              e,
+            );
+          }
+        }
       }
     }
 
@@ -235,13 +264,15 @@ class DeviceDiscoveryService {
     final discoveredDevices = <DeviceInfo>[];
     for (final baseUrl in discoveredUrls) {
       final uri = Uri.parse(baseUrl);
-      final ip = uri.host;
+      final host = uri.host;
+      final ip = isIpv4Address(host) ? host : null;
 
       // Attempt to get MAC from the mapping, or extract it from host/URL
       var mac = discoveredMacs[baseUrl];
       if (mac == null || mac.isEmpty) {
         mac =
-            extractMacFromHostOrName(ip) ??
+            extractMacFromHostOrName(discoveredMdnsHosts[baseUrl]) ??
+            extractMacFromHostOrName(host) ??
             extractMacFromHostOrName(uri.toString());
       }
 
@@ -250,8 +281,13 @@ class DeviceDiscoveryService {
       if (mac != null) {
         final cleanMac = mac.replaceAll(':', '').toLowerCase();
         mdnsHost = 'nyaneye-$cleanMac.local';
-      } else if (ip.endsWith('.local')) {
-        mdnsHost = ip;
+      } else {
+        final discoveredHost = discoveredMdnsHosts[baseUrl];
+        if (discoveredHost != null && discoveredHost.isNotEmpty) {
+          mdnsHost = discoveredHost;
+        } else if (host.toLowerCase().endsWith('.local')) {
+          mdnsHost = normalizeMdnsHost(host);
+        }
       }
 
       discoveredDevices.add(
@@ -271,6 +307,33 @@ class DeviceDiscoveryService {
       );
     }
     return discoveredDevices;
+  }
+
+  /// Returns the first numeric IPv4 address resolved for an mDNS service.
+  @visibleForTesting
+  String? preferredIpv4Address(nsd.Service service) {
+    for (final address in service.addresses ?? const <InternetAddress>[]) {
+      if (address.type == InternetAddressType.IPv4) {
+        return address.address;
+      }
+    }
+    final host = normalizeMdnsHost(service.host);
+    return isIpv4Address(host) ? host : null;
+  }
+
+  /// Normalizes Bonjour's fully-qualified trailing dot for URL/cache usage.
+  @visibleForTesting
+  String? normalizeMdnsHost(String? host) {
+    if (host == null || host.isEmpty) return null;
+    return host.replaceFirst(RegExp(r'\.+$'), '');
+  }
+
+  /// Whether [host] is a numeric IPv4 address rather than an mDNS hostname.
+  @visibleForTesting
+  bool isIpv4Address(String? host) {
+    if (host == null || host.isEmpty) return false;
+    final address = InternetAddress.tryParse(host);
+    return address != null && address.type == InternetAddressType.IPv4;
   }
 
   /// Extracts MAC address from a host or service name string.

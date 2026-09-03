@@ -1,10 +1,38 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:esp32_comm/src/services/device_discovery_service.dart';
 import 'package:nsd/nsd.dart' as nsd;
 
 void main() {
+  group('DeviceDiscoveryService platform policy', () {
+    tearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    test('uses mDNS only on iOS by default', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      expect(DeviceDiscoveryService().enableUdpDiscovery, isFalse);
+    });
+
+    test('keeps UDP discovery enabled on Android by default', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+      expect(DeviceDiscoveryService().enableUdpDiscovery, isTrue);
+    });
+
+    test('allows UDP discovery policy to be overridden explicitly', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      expect(
+        DeviceDiscoveryService(enableUdpDiscovery: true).enableUdpDiscovery,
+        isTrue,
+      );
+    });
+  });
+
   group('DeviceDiscoveryService MAC Extraction Tests', () {
     final discoveryService = DeviceDiscoveryService();
 

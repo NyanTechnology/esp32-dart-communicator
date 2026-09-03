@@ -7,22 +7,27 @@ import '../models/device_info.dart';
 
 /// Service for discovering ESP32 devices on the local area network.
 ///
-/// Utilizes both mDNS and UDP broadcast for robust discovery.
+/// Uses mDNS on iOS and combines mDNS with UDP broadcast on other platforms.
 class DeviceDiscoveryService {
   final String mDnsServiceName;
   final String mDnsSearchString;
   final String udpRequestString;
+  final bool enableUdpDiscovery;
 
   /// Creates a new [DeviceDiscoveryService].
   ///
   /// [mDnsServiceName] is the service type to search for (default: _nyaneyes._tcp).
   /// [mDnsSearchString] is a substring to match in the discovered service name.
   /// [udpRequestString] is the payload for UDP broadcast discovery.
+  /// [enableUdpDiscovery] defaults to false on iOS until the multicast
+  /// entitlement is available, and true on other platforms.
   DeviceDiscoveryService({
     this.mDnsServiceName = '_nyaneyes._tcp',
     this.mDnsSearchString = '',
     this.udpRequestString = 'DISCOVER_ESP32_REQ',
-  });
+    bool? enableUdpDiscovery,
+  }) : enableUdpDiscovery =
+           enableUdpDiscovery ?? defaultTargetPlatform != TargetPlatform.iOS;
 
   // Helper method to format debugging output to conform exactly to the main App's framed, emoji-based logger style.
   void _log(String emoji, String tag, String msg, [dynamic error]) {
@@ -48,10 +53,11 @@ class DeviceDiscoveryService {
   Future<List<DeviceInfo>> discoverEsp32DevicesOnLan({
     Duration timeout = const Duration(seconds: 3),
   }) async {
+    final discoveryMode = enableUdpDiscovery ? 'mDNS + UDP' : 'mDNS only';
     _log(
       '🔍',
       'DeviceDiscoveryService',
-      'Starting dual-mode LAN discovery (mDNS + UDP) with timeout: ${timeout.inSeconds}s',
+      'Starting LAN discovery ($discoveryMode) with timeout: ${timeout.inSeconds}s',
     );
     final discoveredUrls = <String>{};
     final discoveredMacs = <String, String>{};
@@ -249,10 +255,13 @@ class DeviceDiscoveryService {
     }
 
     try {
-      await Future.wait([
-        runMDNS(),
-        runUDP(),
-      ]).timeout(timeout + const Duration(seconds: 1));
+      final discoveryTasks = <Future<void>>[runMDNS()];
+      if (enableUdpDiscovery) {
+        discoveryTasks.add(runUDP());
+      }
+      await Future.wait(
+        discoveryTasks,
+      ).timeout(timeout + const Duration(seconds: 1));
     } catch (_) {
       _log(
         '💡',

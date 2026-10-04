@@ -1,7 +1,7 @@
 import groovy.lang.GroovyShell
 
 // Dynamically inject a dummy jcenter() method back to RepositoryHandler to prevent outdated
-// third-party plugins (like wifi_iot) from crashing under Gradle 8.0+ / 9.0+.
+// third-party plugins from crashing under Gradle 8.0+ / 9.0+.
 GroovyShell().evaluate("""
     import org.gradle.api.artifacts.dsl.RepositoryHandler
     RepositoryHandler.metaClass.jcenter = { ->

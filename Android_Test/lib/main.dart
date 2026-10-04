@@ -47,7 +47,8 @@ class _MainTesterScreenState extends State<MainTesterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NyanEye SDK 极简测试器', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('NyanEye SDK 极简测试器',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       ),
@@ -62,12 +63,14 @@ class _MainTesterScreenState extends State<MainTesterScreen> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.bluetooth),
-            selectedIcon: Icon(Icons.bluetooth_connected, color: Colors.deepPurpleAccent),
+            selectedIcon:
+                Icon(Icons.bluetooth_connected, color: Colors.deepPurpleAccent),
             label: '蓝牙调试器',
           ),
           NavigationDestination(
             icon: Icon(Icons.wifi),
-            selectedIcon: Icon(Icons.wifi_tethering, color: Colors.deepPurpleAccent),
+            selectedIcon:
+                Icon(Icons.wifi_tethering, color: Colors.deepPurpleAccent),
             label: '局域网调试器',
           ),
         ],

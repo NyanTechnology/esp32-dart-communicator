@@ -1,4 +1,3 @@
-import 'package:wifi_iot/wifi_iot.dart';
 import 'connect_mode.dart';
 
 class WifiCredentials {
@@ -47,21 +46,6 @@ class WifiCredentials {
       lanIp: json['lanIp'] as String?,
       connectMode: parseMode(json['connectMode'] as String?),
     );
-  }
-
-  NetworkSecurity get security {
-    switch (type?.toUpperCase()) {
-      case 'WPA':
-      case 'WPA2':
-      case 'WPA/WPA2':
-        return NetworkSecurity.WPA;
-      case 'WEP':
-        return NetworkSecurity.WEP;
-      case 'NOPASS':
-        return NetworkSecurity.NONE;
-      default:
-        return NetworkSecurity.WPA;
-    }
   }
 
   static WifiCredentials? tryParse(String raw) {

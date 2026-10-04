@@ -123,14 +123,11 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
     _log('正在打开系统文件选择器...');
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
+      final selectedFile = await FilePicker.pickFile(type: FileType.any);
 
-      if (result != null && result.files.single.bytes != null) {
-        final fileBytes = result.files.single.bytes!;
-        final originalName = result.files.single.name;
+      if (selectedFile != null) {
+        final fileBytes = await selectedFile.readAsBytes();
+        final originalName = selectedFile.name;
 
         // Apply SPIFFS filename limit sanitization!
         final dotIndex = originalName.lastIndexOf('.');
@@ -346,18 +343,15 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
     _log('步骤 1: 正在打开系统文件选择器，请选择用于测试的图片/GIF文件...');
 
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
+      final selectedFile = await FilePicker.pickFile(type: FileType.any);
 
-      if (result == null || result.files.single.bytes == null) {
+      if (selectedFile == null) {
         _log('⚠️ 测试取消：未选择任何文件。');
         return;
       }
 
-      final fileBytes = result.files.single.bytes!;
-      final filename = result.files.single.name;
+      final fileBytes = await selectedFile.readAsBytes();
+      final filename = selectedFile.name;
 
       _log('📂 已选择测试文件: $filename | 大小: ${fileBytes.length} 字节');
       _log('🚀 开始连续 3 轮“上传并显示”循环测试，每轮间隔 2.5 秒...');
@@ -557,19 +551,18 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
     _log('📂 [智能转换及上传] 正在打开文件选择器选择图片 (PNG/JPG/WEBP/GIF)...');
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final selectedFile = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-        withData: true,
       );
 
-      if (result == null || result.files.single.bytes == null) {
+      if (selectedFile == null) {
         _log('⚠️ 操作取消：未选择任何图片文件。');
         return;
       }
 
-      final originalBytes = result.files.single.bytes!;
-      final originalName = result.files.single.name;
+      final originalBytes = await selectedFile.readAsBytes();
+      final originalName = selectedFile.name;
       _log('📂 已选择源图片: $originalName | 大小: ${originalBytes.length} 字节');
 
       final isGif = originalName.toLowerCase().endsWith('.gif');
@@ -581,7 +574,10 @@ class _LanTesterScreenState extends State<LanTesterScreen> {
 
       if (isGif) {
         _log('🎬 检测到动画 GIF，启动多帧智能重采样缩放引擎 (Isolate)...');
-        convertedBytes = await compute(_resizeGifTo160InIsolate, originalBytes);
+        convertedBytes = await compute<Uint8List, Uint8List?>(
+          _resizeGifTo160InIsolate,
+          originalBytes,
+        );
       } else {
         _log('🖼️ 检测到静态图像 (PNG/JPG/WEBP)，启动硬件加速无损 RGB565 转换引擎...');
         convertedBytes = await _convertImageToRgb565(originalBytes);

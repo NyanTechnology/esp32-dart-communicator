@@ -41,9 +41,9 @@ class DeviceDiscoveryService {
       '├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄',
     );
     debugPrint('│ $emoji [$tag] $msg');
-    if (error != null) {
-      debugPrint('│ Error: $error');
-    }
+    // Native exception messages may contain endpoint names, addresses or TXT
+    // payloads. Only the error type belongs in shared diagnostics.
+    if (error != null) debugPrint('│ Error type: ${error.runtimeType}');
     debugPrint(
       '└───────────────────────────────────────────────────────────────────────────────',
     );
@@ -107,7 +107,7 @@ class DeviceDiscoveryService {
                       _log(
                         '✅',
                         'DeviceDiscoveryService',
-                        'mDNS Hit: $baseUrl (MAC: $parsedMac)',
+                        'mDNS endpoint discovered; mac_present=true',
                       );
                     } catch (_) {}
                   }
@@ -115,17 +115,12 @@ class DeviceDiscoveryService {
                   _log(
                     '✅',
                     'DeviceDiscoveryService',
-                    'mDNS Hit: $baseUrl (No TXT MAC data)',
+                    'mDNS endpoint discovered; mac_present=false',
                   );
                 }
               }
             } catch (e) {
-              _log(
-                '⚠️',
-                'DeviceDiscoveryService',
-                'mDNS resolve failed for service: ${service.name}',
-                e,
-              );
+              _log('⚠️', 'DeviceDiscoveryService', 'mDNS resolve failed', e);
             }
           }
         }
@@ -177,9 +172,8 @@ class DeviceDiscoveryService {
             if (event == RawSocketEvent.read) {
               final dg = socket.receive();
               if (dg != null) {
-                String? jsonStr;
                 try {
-                  jsonStr = utf8.decode(dg.data);
+                  final jsonStr = utf8.decode(dg.data);
                   final info = jsonDecode(jsonStr);
                   final ip = info['ip'];
                   final port = info['http_port'] ?? info['tcp_port'] ?? 80;
@@ -192,18 +186,21 @@ class DeviceDiscoveryService {
                       _log(
                         '🚀',
                         'DeviceDiscoveryService',
-                        'UDP Hit: $baseUrl (MAC: $mac)',
+                        'UDP endpoint discovered; mac_present=true',
                       );
                     } else {
-                      _log('🚀', 'DeviceDiscoveryService', 'UDP Hit: $baseUrl');
+                      _log(
+                        '🚀',
+                        'DeviceDiscoveryService',
+                        'UDP endpoint discovered; mac_present=false',
+                      );
                     }
                   }
                 } catch (e) {
-                  // 收到了回包但无法按协议解析——打印原文，方便排查固件回包格式不匹配的问题
                   _log(
                     '⚠️',
                     'DeviceDiscoveryService',
-                    'UDP reply from ${dg.address.address}:${dg.port} could not be parsed: ${jsonStr ?? dg.data}',
+                    'UDP reply could not be parsed',
                     e,
                   );
                 }
@@ -240,7 +237,7 @@ class DeviceDiscoveryService {
             _log(
               '⚠️',
               'DeviceDiscoveryService',
-              'UDP send to ${target.address} failed',
+              'UDP broadcast send failed',
               e,
             );
           }
